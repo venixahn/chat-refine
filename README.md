@@ -10,6 +10,7 @@ Working today:
 - Room directory, group create/join, and 1:1 DMs
 - Authenticated signaling WebSocket (`GET /api/signal/ticket`, then `/ws`)
 - P2P text over WebRTC data channels, kept in local history
+- Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
 - 1:1 and small-group audio/video on the same mesh (join/leave, mute, camera)
 - Landing, auth pages, and `/app` / `/app/c/:id`
 - Unit, API, coverage, and Playwright auth, chat, and call e2e

@@ -9,6 +9,7 @@ import {
   onCleanup,
 } from "solid-js";
 import type { CallPresence, ChatMessage } from "@chat-refine/shared";
+import { Markdown } from "../components/markdown.tsx";
 import { MediaTile } from "../components/media-tile.tsx";
 import { me } from "../lib/auth-api.ts";
 import {
@@ -207,7 +208,7 @@ export const ConversationPage = () => {
               <p class="text-xs text-[var(--muted)]">
                 {authors().get(item.fromUserId) ?? "Peer"}
               </p>
-              <p class="mt-1 whitespace-pre-wrap">{item.body}</p>
+              <Markdown source={item.body} />
             </li>
           )}
         </For>
