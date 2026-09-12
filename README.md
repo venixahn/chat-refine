@@ -9,12 +9,15 @@ Working today:
 - Public signup / sign-in / sign-out (Passport Local + session cookie)
 - Room directory, group create/join, and 1:1 DMs
 - Authenticated signaling WebSocket (`GET /api/signal/ticket`, then `/ws`)
+- Authenticated ICE list (`GET /api/ice`) from optional `ICE_SERVERS`
 - P2P text over WebRTC data channels, kept in local history
+- Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
 - 1:1 and small-group audio/video on the same mesh (join/leave, mute, camera)
 - Landing, auth pages, and `/app` / `/app/c/:id`
-- Unit, API, coverage, and Playwright auth, chat, and call e2e
+- Stacked mobile layout (rooms list, then thread with a Rooms back link)
+- Unit, API, coverage, and Playwright auth, chat, call, and mobile e2e
 
-A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. No cloud STUN/TURN; host ICE candidates on this LAN.
+A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. No cloud STUN/TURN; host ICE candidates on this LAN unless you set on-prem `ICE_SERVERS`.
 
 ## Stack
 
@@ -30,7 +33,7 @@ A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. No c
 | Tests | Vitest, Supertest, Playwright, V8 coverage |
 | Quality | ESLint, Husky (`pre-commit` tests, `pre-push` e2e) |
 
-No cloud services at runtime. No OAuth. Optional later: self-hosted coturn on the same premises (not Google/Twilio STUN).
+No cloud services at runtime. No OAuth. Optional: self-hosted coturn on the same premises via `ICE_SERVERS` (not Google/Twilio STUN).
 
 ## Requirements
 
@@ -48,7 +51,7 @@ npm install
 copy .env.example .env
 ```
 
-On Unix, use `cp .env.example .env`. Set `SESSION_SECRET` in `.env` before any real use.
+On Unix, use `cp .env.example .env`. Set `SESSION_SECRET` in `.env` before any real use. Leave `ICE_SERVERS` empty for same-LAN host candidates.
 
 ## Run
 
@@ -67,13 +70,25 @@ Production shape (later): `npm run build`, then Nest serves `client/dist` plus `
 
 ```bash
 npm test          # Vitest + V8 coverage (shared + server)
-npm run test:e2e  # Playwright (auth, two-peer text, two-peer call)
+npm run test:e2e  # Playwright (auth, two-peer text, two-peer call, mobile)
 npm run lint      # ESLint
 ```
 
 Coverage HTML is written to `coverage/` (gitignored). `npm test` fails if lines/statements/functions drop below **80%** or branches below **70%**.
 
 Husky runs `npm test` on commit and `npm run test:e2e` on push. Do not use `--no-verify` unless asked.
+
+## On-prem ICE
+
+Same-LAN peers connect with host candidates when `ICE_SERVERS` is empty (the default). chat-refine never uses Google or Twilio STUN; those URLs are dropped if they appear in the env value.
+
+If browsers sit on different subnets (or you need NAT traversal on the premises), run [coturn](https://github.com/coturn/coturn) on this LAN and point Nest at it:
+
+```bash
+ICE_SERVERS=[{"urls":"turn:turn.lan:3478","username":"chat","credential":"secret"}]
+```
+
+Signed-in clients load that list from `GET /api/ice` and pass it into each `RTCPeerConnection`. Keep TURN credentials on this machine; do not publish them.
 
 ## Git Flow
 

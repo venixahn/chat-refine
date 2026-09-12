@@ -1,0 +1,89 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import request from "supertest";
+import type { INestApplication } from "@nestjs/common";
+import { createApp } from "../src/http/create-app.ts";
+import { DbService } from "../src/db/db.service.ts";
+
+const ada = {
+  username: "ada",
+  displayName: "Ada Lovelace",
+  password: "sufficient",
+};
+
+describe("GET /api/ice", () => {
+  let app: INestApplication;
+  let dbDir: string;
+  let db: DbService;
+  let previousIce: string | undefined;
+
+  beforeAll(async () => {
+    dbDir = await mkdtemp(join(tmpdir(), "chat-refine-ice-"));
+    process.env.CHAT_REFINE_DB_PATH = join(dbDir, "db.json");
+    process.env.SESSION_SECRET = "test-secret";
+    app = await createApp();
+    await app.init();
+    db = app.get(DbService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await rm(dbDir, { recursive: true, force: true });
+  });
+
+  beforeEach(async () => {
+    previousIce = process.env.ICE_SERVERS;
+    delete process.env.ICE_SERVERS;
+    await db.update((data) => {
+      data.profiles.length = 0;
+      data.conversationMembers.length = 0;
+    });
+  });
+
+  afterEach(() => {
+    if (previousIce === undefined) {
+      delete process.env.ICE_SERVERS;
+    } else {
+      process.env.ICE_SERVERS = previousIce;
+    }
+  });
+
+  it("rejects an anonymous request", async () => {
+    const response = await request(app.getHttpServer()).get("/api/ice");
+    expect(response.status).toBe(401);
+  });
+
+  it("returns an empty list by default", async () => {
+    const agent = request.agent(app.getHttpServer());
+    await agent.post("/api/auth/signup").send(ada);
+    const response = await agent.get("/api/ice");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ iceServers: [] });
+  });
+
+  it("returns on-prem servers and drops cloud STUN", async () => {
+    process.env.ICE_SERVERS = JSON.stringify([
+      { urls: "stun:stun.l.google.com:19302" },
+      {
+        urls: "turn:turn.lan:3478",
+        username: "chat",
+        credential: "secret",
+      },
+    ]);
+    const agent = request.agent(app.getHttpServer());
+    await agent.post("/api/auth/signup").send(ada);
+    const response = await agent.get("/api/ice");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      iceServers: [
+        {
+          urls: "turn:turn.lan:3478",
+          username: "chat",
+          credential: "secret",
+        },
+      ],
+    });
+  });
+});

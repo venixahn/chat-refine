@@ -25,3 +25,28 @@ body {
     system-ui,
     sans-serif;
 }
+
+.chat-md a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.chat-md code,
+.chat-md pre {
+  border-radius: 0.4rem;
+  background: var(--bg);
+  font-size: 0.9em;
+}
+
+.chat-md code {
+  padding: 0.1rem 0.35rem;
+}
+
+.chat-md pre {
+  padding: 0.6rem 0.75rem;
+  overflow-x: auto;
+}
+
+.chat-md pre code {
+  padding: 0;
+}

@@ -32,8 +32,6 @@ type PeerLink = {
   subscriptions: Subscription[];
 };
 
-const iceConfig: RTCConfiguration = { iceServers: [] };
-
 const parseCandidate = (candidate: string): RTCIceCandidateInit | null => {
   try {
     return JSON.parse(candidate) as RTCIceCandidateInit;
@@ -50,7 +48,9 @@ export const createMesh = (input: {
   onState: () => void;
   onChannelOpen?: (userId: string) => void;
   onRemoteStream?: (userId: string, stream: MediaStream | null) => void;
+  iceServers?: RTCIceServer[];
 }): Mesh => {
+  const iceConfig: RTCConfiguration = { iceServers: input.iceServers ?? [] };
   const peers = new Map<string, PeerLink>();
   const pendingIce = new Map<string, string[]>();
   const makingOffer = new Set<string>();

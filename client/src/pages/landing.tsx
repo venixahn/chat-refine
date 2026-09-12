@@ -5,12 +5,12 @@ export const LandingPage = () => (
     <p class="text-sm tracking-[0.2em] text-[var(--accent)] uppercase">
       On-prem peer-to-peer
     </p>
-    <h1 class="text-5xl font-semibold tracking-tight">chat-refine</h1>
+    <h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">chat-refine</h1>
     <p class="text-lg text-[var(--muted)]">
       Sign in on this server. Talk and call through WebRTC — not through the
       host.
     </p>
-    <div class="flex gap-3">
+    <div class="flex flex-wrap gap-3">
       <A
         href="/signup"
         class="rounded-full bg-[var(--accent)] px-5 py-2.5 font-medium text-[var(--bg)]"

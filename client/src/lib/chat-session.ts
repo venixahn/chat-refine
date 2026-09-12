@@ -2,6 +2,7 @@ import {
   applyCallState,
   avPeerCount,
   canAddAvPeer,
+  iceConfigSchema,
   type CallPresence,
   type ChatMessage,
   type SignalingPeer,
@@ -11,7 +12,7 @@ import { debounceTime } from "rxjs/operators";
 import type { PublicProfile } from "./auth-api.ts";
 import { loadHistory, persistMessage } from "./local-history.ts";
 import { createMesh, stubPeer, type Mesh } from "./mesh.ts";
-import { signalTicket } from "./rooms-api.ts";
+import { listIce, signalTicket } from "./rooms-api.ts";
 import { connectSignal } from "./signal-client.ts";
 
 export type RemoteMedia = {
@@ -62,11 +63,13 @@ export const startChatSession = async (input: {
   input.onMessages(messages);
   input.onStatus("Connecting…");
 
-  const ticket = await signalTicket();
+  const [ticket, ice] = await Promise.all([signalTicket(), listIce()]);
   if (!ticket.ok) {
     input.onStatus("Could not start signaling");
     throw new Error("Signal ticket failed");
   }
+  const parsedIce = ice.ok ? iceConfigSchema.safeParse(ice.data) : null;
+  const iceServers = parsedIce?.success ? parsedIce.data.iceServers : [];
 
   const signal = connectSignal(ticket.data.ticket);
   await signal.ready;
@@ -123,6 +126,7 @@ export const startChatSession = async (input: {
   const mesh: Mesh = createMesh({
     conversationId: input.conversationId,
     selfId: input.self.id,
+    iceServers,
     sendSignal: signal.send,
     onChannelOpen: (userId) => {
       mesh.sendTo(userId, {
