@@ -1,6 +1,14 @@
+import { mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { JSONFilePreset } from "lowdb/node";
 import { emptyDb, type DbSchema } from "./schema.ts";
+
+const repoDataPath = join(
+  fileURLToPath(new URL("../../..", import.meta.url)),
+  "data/db.json",
+);
 
 const seedRooms = (data: DbSchema): void => {
   if (data.conversations.length > 0) {
@@ -31,7 +39,8 @@ export class DbService implements OnModuleInit {
   private tail: Promise<unknown> = Promise.resolve();
 
   async onModuleInit(): Promise<void> {
-    const filePath = process.env.CHAT_REFINE_DB_PATH ?? "data/db.json";
+    const filePath = process.env.CHAT_REFINE_DB_PATH ?? repoDataPath;
+    await mkdir(dirname(filePath), { recursive: true });
     this.db = await JSONFilePreset<DbSchema>(filePath, emptyDb());
     await this.update((data) => {
       seedRooms(data);
