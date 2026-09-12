@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import type { INestApplication } from "@nestjs/common";
+import { DEFAULT_ICE_SERVERS } from "@chat-refine/shared";
 import { createApp } from "../src/http/create-app.ts";
 import { DbService } from "../src/db/db.service.ts";
 
@@ -55,7 +56,16 @@ describe("GET /api/ice", () => {
     expect(response.status).toBe(401);
   });
 
-  it("returns an empty list by default", async () => {
+  it("returns public Google STUN by default", async () => {
+    const agent = request.agent(app.getHttpServer());
+    await agent.post("/api/auth/signup").send(ada);
+    const response = await agent.get("/api/ice");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ iceServers: DEFAULT_ICE_SERVERS });
+  });
+
+  it("returns an explicit empty list for LAN-only", async () => {
+    process.env.ICE_SERVERS = "[]";
     const agent = request.agent(app.getHttpServer());
     await agent.post("/api/auth/signup").send(ada);
     const response = await agent.get("/api/ice");
@@ -63,11 +73,11 @@ describe("GET /api/ice", () => {
     expect(response.body).toEqual({ iceServers: [] });
   });
 
-  it("returns on-prem servers and drops cloud STUN", async () => {
+  it("returns configured STUN and TURN servers", async () => {
     process.env.ICE_SERVERS = JSON.stringify([
       { urls: "stun:stun.l.google.com:19302" },
       {
-        urls: "turn:turn.lan:3478",
+        urls: "turn:turn.example:3478",
         username: "chat",
         credential: "secret",
       },
@@ -78,8 +88,9 @@ describe("GET /api/ice", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
         {
-          urls: "turn:turn.lan:3478",
+          urls: "turn:turn.example:3478",
           username: "chat",
           credential: "secret",
         },

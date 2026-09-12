@@ -6,10 +6,10 @@ export {
   type CallPresence,
 } from "./mesh.ts";
 export {
+  DEFAULT_ICE_SERVERS,
   iceConfigSchema,
   iceServerSchema,
   iceServersSchema,
-  isCloudIceUrl,
   parseIceServers,
   type IceServer,
 } from "./ice.ts";

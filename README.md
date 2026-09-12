@@ -9,7 +9,7 @@ Working today:
 - Public signup / sign-in / sign-out (Passport Local + session cookie)
 - Room directory, group create/join, and 1:1 DMs
 - Authenticated signaling WebSocket (`GET /api/signal/ticket`, then `/ws`)
-- Authenticated ICE list (`GET /api/ice`) from optional `ICE_SERVERS`
+- Authenticated ICE list (`GET /api/ice`) — Google STUN by default, or `ICE_SERVERS`
 - P2P text over WebRTC data channels, kept in local history
 - Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
 - 1:1 and small-group audio/video on the same mesh (join/leave, mute, camera)
@@ -17,7 +17,7 @@ Working today:
 - Stacked mobile layout (rooms list, then thread with a Rooms back link)
 - Unit, API, coverage, and Playwright auth, chat, call, and mobile e2e
 
-A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. No cloud STUN/TURN; host ICE candidates on this LAN unless you set on-prem `ICE_SERVERS`.
+A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. Peers across the internet use public Google STUN by default. Set `ICE_SERVERS=[]` for LAN-only host candidates, or add your own TURN for hard NAT.
 
 ## Stack
 
@@ -33,7 +33,7 @@ A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. No c
 | Tests | Vitest, Supertest, Playwright, V8 coverage |
 | Quality | ESLint, Husky (`pre-commit` tests, `pre-push` e2e) |
 
-No cloud services at runtime. No OAuth. Optional: self-hosted coturn on the same premises via `ICE_SERVERS` (not Google/Twilio STUN).
+No OAuth. Default ICE uses Google’s public STUN (`stun.l.google.com` and stun1–4). Chat and call media still go peer-to-peer, not through Nest. Optional: your own TURN / coturn via `ICE_SERVERS`.
 
 ## Requirements
 
@@ -51,7 +51,7 @@ npm install
 copy .env.example .env
 ```
 
-On Unix, use `cp .env.example .env`. Set `SESSION_SECRET` in `.env` before any real use. Leave `ICE_SERVERS` empty for same-LAN host candidates.
+On Unix, use `cp .env.example .env`. Set `SESSION_SECRET` in `.env` before any real use. Leave `ICE_SERVERS` blank for Google STUN (internet). Use `ICE_SERVERS=[]` for LAN-only.
 
 ## Run
 
@@ -59,10 +59,10 @@ On Unix, use `cp .env.example .env`. Set `SESSION_SECRET` in `.env` before any r
 npm run dev
 ```
 
-- Client: [http://127.0.0.1:5173](http://127.0.0.1:5173)
+- Client: [http://127.0.0.1:5173](http://127.0.0.1:5173) (also on your LAN IP)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Chat bodies and call media never hit the API — only join/SDP/ICE do. Join a call from the conversation header.
+Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Chat bodies and call media never hit the API — only join/SDP/ICE do. Join a call from the conversation header.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 
@@ -78,17 +78,29 @@ Coverage HTML is written to `coverage/` (gitignored). `npm test` fails if lines/
 
 Husky runs `npm test` on commit and `npm run test:e2e` on push. Do not use `--no-verify` unless asked.
 
-## On-prem ICE
+## ICE and using the app over the internet
 
-Same-LAN peers connect with host candidates when `ICE_SERVERS` is empty (the default). chat-refine never uses Google or Twilio STUN; those URLs are dropped if they appear in the env value.
+Signed-in clients load ICE servers from `GET /api/ice` and pass them into each `RTCPeerConnection`.
 
-If browsers sit on different subnets (or you need NAT traversal on the premises), run [coturn](https://github.com/coturn/coturn) on this LAN and point Nest at it:
+**Default (blank `ICE_SERVERS`):** Google’s public STUN (`stun.l.google.com:19302` and stun1–4). That is enough for most home/office NATs. Nest still only signals; media stays peer-to-peer.
+
+**LAN-only:** `ICE_SERVERS=[]` — host candidates, no STUN.
+
+**Hard NAT:** add a TURN server you run (for example [coturn](https://github.com/coturn/coturn)):
 
 ```bash
-ICE_SERVERS=[{"urls":"turn:turn.lan:3478","username":"chat","credential":"secret"}]
+ICE_SERVERS=[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example:3478","username":"chat","credential":"secret"}]
 ```
 
-Signed-in clients load that list from `GET /api/ice` and pass it into each `RTCPeerConnection`. Keep TURN credentials on this machine; do not publish them.
+Keep TURN credentials on this machine.
+
+Publishing the app is separate from ICE. Both browsers must reach this host for signup and `/ws`:
+
+1. Run `npm run dev` (Vite and Nest listen on all interfaces).
+2. Open the app as `http://<this-machine>:5173` on the LAN, or port-forward / tunnel 5173 (and 3000, or put both behind one reverse proxy).
+3. Camera and microphone need HTTPS except on `localhost`. A tunnel such as Cloudflare Tunnel or ngrok gives you that. Text chat can work over plain HTTP.
+
+If peers never leave “Connecting peers…”, STUN could not punch the NAT — add TURN.
 
 ## Git Flow
 
