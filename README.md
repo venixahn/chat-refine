@@ -13,6 +13,7 @@ Working today:
 - Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
 - 1:1 and small-group audio/video on the same mesh (join/leave, mute, camera)
 - Landing, auth pages, and `/app` / `/app/c/:id`
+- Stacked mobile layout (rooms list, then thread with a Rooms back link)
 - Unit, API, coverage, and Playwright auth, chat, and call e2e
 
 A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. No cloud STUN/TURN; host ICE candidates on this LAN.

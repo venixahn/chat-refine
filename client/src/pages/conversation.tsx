@@ -1,4 +1,4 @@
-import { useParams } from "@solidjs/router";
+import { A, useParams } from "@solidjs/router";
 import {
   For,
   Show,
@@ -116,8 +116,14 @@ export const ConversationPage = () => {
 
   return (
     <main class="flex h-screen flex-col">
-      <header class="flex items-center justify-between gap-4 border-b border-[var(--line)] px-6 py-4">
+      <header class="flex flex-col gap-3 border-b border-[var(--line)] px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
         <div>
+          <A
+            href="/app"
+            class="mb-2 inline-block text-sm text-[var(--accent)] md:hidden"
+          >
+            Rooms
+          </A>
           <h2 class="text-xl font-semibold">{room()?.title ?? "Conversation"}</h2>
           <p class="text-sm text-[var(--muted)]">{status()}</p>
         </div>

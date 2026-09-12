@@ -1,4 +1,4 @@
-import { A, useNavigate } from "@solidjs/router";
+import { A, useLocation, useNavigate } from "@solidjs/router";
 import {
   For,
   Show,
@@ -25,6 +25,8 @@ const matches = (value: string, query: string) =>
 
 export const AppShell = (props: { children?: JSX.Element }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const inThread = () => location.pathname.startsWith("/app/c/");
   const [tick, setTick] = createSignal(0);
   const [groupName, setGroupName] = createSignal("");
   const [dmName, setDmName] = createSignal("");
@@ -157,7 +159,11 @@ export const AppShell = (props: { children?: JSX.Element }) => {
 
   return (
     <div class="flex min-h-screen bg-[var(--bg)]">
-      <aside class="flex w-72 shrink-0 flex-col border-r border-[var(--line)] bg-[var(--surface)]">
+      <aside
+        class={`flex w-full shrink-0 flex-col border-r border-[var(--line)] bg-[var(--surface)] md:w-72 ${
+          inThread() ? "hidden md:flex" : "flex"
+        }`}
+      >
         <div class="border-b border-[var(--line)] px-5 py-5">
           <p class="text-xs tracking-[0.2em] text-[var(--accent)] uppercase">
             Signed in
@@ -284,7 +290,11 @@ export const AppShell = (props: { children?: JSX.Element }) => {
           </button>
         </div>
       </aside>
-      <div class="min-w-0 flex-1">{props.children}</div>
+      <div
+        class={`min-w-0 flex-1 ${inThread() ? "flex" : "hidden md:flex"}`}
+      >
+        {props.children}
+      </div>
       <Show when={paletteOpen()}>
         <div
           class="fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-24"
