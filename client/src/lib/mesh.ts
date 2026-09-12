@@ -11,6 +11,13 @@ export type Mesh = {
   acceptOffer: (peer: SignalingPeer, sdp: string) => Promise<void>;
   handleAnswer: (userId: string, sdp: string) => Promise<void>;
   handleIce: (userId: string, candidate: string) => Promise<void>;
+  attachLocalStream: (stream: MediaStream) => Promise<void>;
+  detachLocalStream: () => Promise<void>;
+  replaceMediaTrack: (
+    kind: "audio" | "video",
+    track: MediaStreamTrack | null,
+  ) => Promise<void>;
+  renegotiate: (userId?: string) => Promise<void>;
   broadcast: (event: P2pEvent) => void;
   sendTo: (userId: string, event: P2pEvent) => void;
   drop: (userId: string) => void;
@@ -37,13 +44,19 @@ const parseCandidate = (candidate: string): RTCIceCandidateInit | null => {
 
 export const createMesh = (input: {
   conversationId: string;
+  selfId: string;
   sendSignal: (frame: SignalingFrame) => void;
   onEvent: (fromUserId: string, event: P2pEvent) => void;
   onState: () => void;
   onChannelOpen?: (userId: string) => void;
+  onRemoteStream?: (userId: string, stream: MediaStream | null) => void;
 }): Mesh => {
   const peers = new Map<string, PeerLink>();
   const pendingIce = new Map<string, string[]>();
+  const makingOffer = new Set<string>();
+  let localStream: MediaStream | null = null;
+
+  const politeToward = (peerId: string) => input.selfId > peerId;
 
   const flushIce = async (userId: string) => {
     const link = peers.get(userId);
@@ -58,6 +71,24 @@ export const createMesh = (input: {
         await link.pc.addIceCandidate(parsed);
       }
     }
+  };
+
+  const sendOffer = (peer: SignalingPeer, sdp: string) => {
+    input.sendSignal({
+      type: "offer",
+      conversationId: input.conversationId,
+      toUserId: peer.userId,
+      sdp,
+    });
+  };
+
+  const sendAnswer = (peer: SignalingPeer, sdp: string) => {
+    input.sendSignal({
+      type: "answer",
+      conversationId: input.conversationId,
+      toUserId: peer.userId,
+      sdp,
+    });
   };
 
   const bindChannel = (userId: string, channel: RTCDataChannel) => {
@@ -88,6 +119,17 @@ export const createMesh = (input: {
     }
   };
 
+  const attachToPc = (pc: RTCPeerConnection, stream: MediaStream) => {
+    for (const track of stream.getTracks()) {
+      const sender = pc.getSenders().find((item) => item.track?.kind === track.kind);
+      if (sender) {
+        void sender.replaceTrack(track);
+      } else {
+        pc.addTrack(track, stream);
+      }
+    }
+  };
+
   const drop = (userId: string) => {
     const link = peers.get(userId);
     if (!link) {
@@ -99,13 +141,37 @@ export const createMesh = (input: {
     link.pc.close();
     peers.delete(userId);
     pendingIce.delete(userId);
+    makingOffer.delete(userId);
+    input.onRemoteStream?.(userId, null);
     input.onState();
+  };
+
+  const createOfferFor = async (link: PeerLink) => {
+    if (link.pc.signalingState !== "stable") {
+      return;
+    }
+    makingOffer.add(link.peer.userId);
+    try {
+      const offer = await link.pc.createOffer();
+      if (link.pc.signalingState !== "stable") {
+        return;
+      }
+      await link.pc.setLocalDescription(offer);
+      if (offer.sdp) {
+        sendOffer(link.peer, offer.sdp);
+      }
+    } finally {
+      makingOffer.delete(link.peer.userId);
+    }
   };
 
   const ensurePc = (peer: SignalingPeer, asOfferer: boolean): PeerLink => {
     const existing = peers.get(peer.userId);
-    if (existing) {
+    if (existing && existing.pc.connectionState !== "closed") {
       return existing;
+    }
+    if (existing) {
+      drop(peer.userId);
     }
     const pc = new RTCPeerConnection(iceConfig);
     const link: PeerLink = { peer, pc, subscriptions: [] };
@@ -128,47 +194,66 @@ export const createMesh = (input: {
     pc.addEventListener("datachannel", (event) => {
       bindChannel(peer.userId, event.channel);
     });
+    pc.addEventListener("track", (event) => {
+      const stream = event.streams[0] ?? new MediaStream([event.track]);
+      const publish = () => {
+        const live = stream.getTracks().some((track) => track.readyState === "live");
+        input.onRemoteStream?.(peer.userId, live ? stream : null);
+      };
+      event.track.addEventListener("ended", publish);
+      publish();
+    });
+    if (localStream) {
+      attachToPc(pc, localStream);
+    }
     if (asOfferer) {
       bindChannel(peer.userId, pc.createDataChannel("chat"));
     }
     return link;
   };
 
+  const answerOffer = async (link: PeerLink, sdp: string) => {
+    const glare =
+      makingOffer.has(link.peer.userId) || link.pc.signalingState !== "stable";
+    if (glare) {
+      if (!politeToward(link.peer.userId)) {
+        return;
+      }
+      try {
+        await link.pc.setLocalDescription({ type: "rollback" });
+      } catch {
+        return;
+      }
+    }
+    await link.pc.setRemoteDescription({ type: "offer", sdp });
+    await flushIce(link.peer.userId);
+    const answer = await link.pc.createAnswer();
+    await link.pc.setLocalDescription(answer);
+    if (answer.sdp) {
+      sendAnswer(link.peer, answer.sdp);
+    }
+  };
+
   return {
     offerTo: async (peer) => {
       const link = ensurePc(peer, true);
-      const offer = await link.pc.createOffer();
-      await link.pc.setLocalDescription(offer);
-      if (offer.sdp) {
-        input.sendSignal({
-          type: "offer",
-          conversationId: input.conversationId,
-          toUserId: peer.userId,
-          sdp: offer.sdp,
-        });
-      }
+      await createOfferFor(link);
     },
     acceptOffer: async (peer, sdp) => {
-      if (peers.has(peer.userId)) {
-        drop(peer.userId);
+      const existing = peers.get(peer.userId);
+      if (existing && existing.pc.connectionState !== "closed") {
+        await answerOffer(existing, sdp);
+        return;
       }
       const link = ensurePc(peer, false);
-      await link.pc.setRemoteDescription({ type: "offer", sdp });
-      await flushIce(peer.userId);
-      const answer = await link.pc.createAnswer();
-      await link.pc.setLocalDescription(answer);
-      if (answer.sdp) {
-        input.sendSignal({
-          type: "answer",
-          conversationId: input.conversationId,
-          toUserId: peer.userId,
-          sdp: answer.sdp,
-        });
-      }
+      await answerOffer(link, sdp);
     },
     handleAnswer: async (userId, sdp) => {
       const link = peers.get(userId);
       if (!link) {
+        return;
+      }
+      if (link.pc.signalingState !== "have-local-offer") {
         return;
       }
       await link.pc.setRemoteDescription({ type: "answer", sdp });
@@ -185,6 +270,38 @@ export const createMesh = (input: {
       const parsed = parseCandidate(candidate);
       if (parsed) {
         await link.pc.addIceCandidate(parsed);
+      }
+    },
+    attachLocalStream: async (stream) => {
+      localStream = stream;
+      for (const link of peers.values()) {
+        attachToPc(link.pc, stream);
+      }
+    },
+    detachLocalStream: async () => {
+      localStream = null;
+      for (const link of peers.values()) {
+        for (const sender of link.pc.getSenders()) {
+          if (sender.track && (sender.track.kind === "audio" || sender.track.kind === "video")) {
+            link.pc.removeTrack(sender);
+          }
+        }
+      }
+    },
+    replaceMediaTrack: async (kind, track) => {
+      for (const link of peers.values()) {
+        const sender = link.pc.getSenders().find((item) => item.track?.kind === kind);
+        if (sender) {
+          await sender.replaceTrack(track);
+        }
+      }
+    },
+    renegotiate: async (userId) => {
+      const links = userId
+        ? ([peers.get(userId)].filter(Boolean) as PeerLink[])
+        : [...peers.values()];
+      for (const link of links) {
+        await createOfferFor(link);
       }
     },
     broadcast: (event) => {
@@ -206,8 +323,9 @@ export const createMesh = (input: {
       [...peers.values()].filter((link) => link.channel?.readyState === "open")
         .length,
     close: () => {
-      for (const userId of [...peers.keys()]) {
-        drop(userId);
+      localStream = null;
+      for (const id of [...peers.keys()]) {
+        drop(id);
       }
     },
   };

@@ -10,12 +10,11 @@ Working today:
 - Room directory, group create/join, and 1:1 DMs
 - Authenticated signaling WebSocket (`GET /api/signal/ticket`, then `/ws`)
 - P2P text over WebRTC data channels, kept in local history
+- 1:1 and small-group audio/video on the same mesh (join/leave, mute, camera)
 - Landing, auth pages, and `/app` / `/app/c/:id`
-- Unit, API, coverage, and Playwright auth + two-peer chat e2e
+- Unit, API, coverage, and Playwright auth, chat, and call e2e
 
-Not built yet:
-
-- Audio / video mesh
+A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. No cloud STUN/TURN; host ICE candidates on this LAN.
 
 ## Stack
 
@@ -26,7 +25,7 @@ Not built yet:
 | Data | lowdb JSON (`data/db.json`, gitignored) |
 | Validation | Zod |
 | Auth | Passport Local + `express-session` |
-| Transport | WebRTC data-channel mesh; Nest WebSocket for SDP/ICE only |
+| Transport | WebRTC data-channel + media mesh; Nest WebSocket for SDP/ICE only |
 | FP / reactive | fp-ts (pure), Effect (IO), RxJS (streams), Solid signals (view) |
 | Tests | Vitest, Supertest, Playwright, V8 coverage |
 | Quality | ESLint, Husky (`pre-commit` tests, `pre-push` e2e) |
@@ -60,7 +59,7 @@ npm run dev
 - Client: [http://127.0.0.1:5173](http://127.0.0.1:5173)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Chat bodies never hit the API — only join/SDP/ICE do.
+Vite proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Chat bodies and call media never hit the API — only join/SDP/ICE do. Join a call from the conversation header.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 
@@ -68,7 +67,7 @@ Production shape (later): `npm run build`, then Nest serves `client/dist` plus `
 
 ```bash
 npm test          # Vitest + V8 coverage (shared + server)
-npm run test:e2e  # Playwright (auth flows plus two-peer P2P text)
+npm run test:e2e  # Playwright (auth, two-peer text, two-peer call)
 npm run lint      # ESLint
 ```
 
