@@ -1,4 +1,5 @@
 import { NestFactory } from "@nestjs/core";
+import { WsAdapter } from "@nestjs/platform-ws";
 import session from "express-session";
 import passport from "passport";
 import { AppModule } from "../app.module.ts";
@@ -8,6 +9,7 @@ export const createApp = async () => {
   const app = await NestFactory.create(AppModule, {
     logger: testing ? false : ["error", "warn", "log"],
   });
+  app.useWebSocketAdapter(new WsAdapter(app));
   app.setGlobalPrefix("api");
   app.use(
     session({

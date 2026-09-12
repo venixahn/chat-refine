@@ -5,7 +5,7 @@ export type PublicProfile = {
   avatarUrl: string | null;
 };
 
-const request = async <T>(
+export const request = async <T>(
   path: string,
   init?: RequestInit,
 ): Promise<{ ok: true; data: T } | { ok: false; status: number }> => {

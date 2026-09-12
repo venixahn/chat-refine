@@ -13,6 +13,7 @@ export default defineConfig({
     setupFiles: ["server/test/setup.ts"],
     coverage: {
       provider: "v8",
+      all: false,
       reporter: ["text", "html", "lcov"],
       reportsDirectory: "coverage",
       include: ["shared/src/**/*.ts", "server/src/**/*.ts"],

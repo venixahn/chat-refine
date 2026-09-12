@@ -1,0 +1,78 @@
+import { describe, expect, it } from "vitest";
+import {
+  p2pEventSchema,
+  signalingEventSchema,
+  signalingFrameSchema,
+} from "./signaling.ts";
+
+describe("signalingFrameSchema", () => {
+  it("accepts a join frame", () => {
+    expect(
+      signalingFrameSchema.safeParse({
+        type: "join",
+        conversationId: "room-general",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an offer without sdp", () => {
+    expect(
+      signalingFrameSchema.safeParse({
+        type: "offer",
+        conversationId: "room-general",
+        toUserId: "user-1",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("p2pEventSchema", () => {
+  it("accepts a text message", () => {
+    expect(
+      p2pEventSchema.safeParse({
+        type: "message",
+        clientMessageId: "msg-ada-1",
+        conversationId: "room-general",
+        body: "hello",
+        createdAt: "2026-09-12T00:00:00.000Z",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an empty body", () => {
+    expect(
+      p2pEventSchema.safeParse({
+        type: "message",
+        clientMessageId: "msg-ada-1",
+        conversationId: "room-general",
+        body: "",
+        createdAt: "2026-09-12T00:00:00.000Z",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("signalingEventSchema", () => {
+  it("accepts a joined roster", () => {
+    expect(
+      signalingEventSchema.safeParse({
+        type: "joined",
+        conversationId: "room-general",
+        peers: [
+          { userId: "u1", username: "ada", displayName: "Ada" },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an offer missing fromUserId", () => {
+    expect(
+      signalingEventSchema.safeParse({
+        type: "offer",
+        conversationId: "room-general",
+        sdp: "v=0",
+      }).success,
+    ).toBe(false);
+  });
+});
+
