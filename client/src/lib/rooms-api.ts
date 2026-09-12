@@ -1,3 +1,4 @@
+import type { IceServer } from "@chat-refine/shared";
 import { request, type PublicProfile } from "./auth-api.ts";
 
 export type RoomView = {
@@ -40,3 +41,5 @@ export const listPeople = (q?: string) => {
 
 export const signalTicket = () =>
   request<{ ticket: string; expiresAt: string }>("/api/signal/ticket");
+
+export const listIce = () => request<{ iceServers: IceServer[] }>("/api/ice");
