@@ -8,9 +8,14 @@ import {
   createSignal,
   onCleanup,
 } from "solid-js";
-import type { ChatMessage } from "@chat-refine/shared";
+import type { CallPresence, ChatMessage } from "@chat-refine/shared";
+import { MediaTile } from "../components/media-tile.tsx";
 import { me } from "../lib/auth-api.ts";
-import { startChatSession, type ChatSession } from "../lib/chat-session.ts";
+import {
+  startChatSession,
+  type ChatSession,
+  type RemoteMedia,
+} from "../lib/chat-session.ts";
 import { getRoom } from "../lib/rooms-api.ts";
 
 export const ConversationPage = () => {
@@ -21,6 +26,12 @@ export const ConversationPage = () => {
   const [draft, setDraft] = createSignal("");
   const [roomError, setRoomError] = createSignal<string | null>(null);
   const [session, setSession] = createSignal<ChatSession | undefined>();
+  const [localStream, setLocalStream] = createSignal<MediaStream | null>(null);
+  const [remoteStreams, setRemoteStreams] = createSignal<RemoteMedia[]>([]);
+  const [callRoster, setCallRoster] = createSignal<CallPresence[]>([]);
+  const [callError, setCallError] = createSignal<string | null>(null);
+  const [muted, setMuted] = createSignal(false);
+  const [cameraOn, setCameraOn] = createSignal(true);
 
   const [profile] = createResource(() =>
     me().then((result) => (result.ok ? result.data : null)),
@@ -50,6 +61,9 @@ export const ConversationPage = () => {
     return map;
   });
 
+  const inCall = () => localStream() !== null;
+  const showStage = () => inCall() || callRoster().length > 0 || remoteStreams().length > 0;
+
   createEffect(() => {
     const conversationId = params.id;
     const self = profile();
@@ -66,6 +80,10 @@ export const ConversationPage = () => {
       onPeers: () => undefined,
       onTyping: setTyping,
       onStatus: setStatus,
+      onLocalStream: setLocalStream,
+      onRemoteStreams: setRemoteStreams,
+      onCallRoster: setCallRoster,
+      onCallError: setCallError,
     })
       .then((started) => {
         if (cancelled) {
@@ -84,6 +102,9 @@ export const ConversationPage = () => {
       cancelled = true;
       active?.close();
       setSession(undefined);
+      setLocalStream(null);
+      setRemoteStreams([]);
+      setCallRoster([]);
     });
   });
 
@@ -94,15 +115,80 @@ export const ConversationPage = () => {
 
   return (
     <main class="flex h-screen flex-col">
-      <header class="flex items-center justify-between border-b border-[var(--line)] px-6 py-4">
+      <header class="flex items-center justify-between gap-4 border-b border-[var(--line)] px-6 py-4">
         <div>
           <h2 class="text-xl font-semibold">{room()?.title ?? "Conversation"}</h2>
           <p class="text-sm text-[var(--muted)]">{status()}</p>
         </div>
-        <p class="text-sm text-[var(--muted)]">
-          P2P text · this server never sees the body
-        </p>
+        <div class="flex flex-wrap items-center gap-2">
+          <Show
+            when={inCall()}
+            fallback={
+              <button
+                type="button"
+                class="rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--bg)]"
+                onClick={() => void session()?.joinCall()}
+              >
+                Join call
+              </button>
+            }
+          >
+            <button
+              type="button"
+              class="rounded-full border border-[var(--line)] px-4 py-1.5 text-sm"
+              onClick={() => {
+                setMuted((value) => {
+                  const next = !value;
+                  session()?.setMuted(next);
+                  return next;
+                });
+              }}
+            >
+              {muted() ? "Unmute" : "Mute"}
+            </button>
+            <button
+              type="button"
+              class="rounded-full border border-[var(--line)] px-4 py-1.5 text-sm"
+              onClick={() => {
+                const next = !cameraOn();
+                setCameraOn(next);
+                void session()?.setCamera(next);
+              }}
+            >
+              {cameraOn() ? "Camera off" : "Camera on"}
+            </button>
+            <button
+              type="button"
+              class="rounded-full border border-red-400/40 px-4 py-1.5 text-sm text-red-300"
+              onClick={() => {
+                setMuted(false);
+                setCameraOn(true);
+                void session()?.leaveCall();
+              }}
+            >
+              Leave call
+            </button>
+          </Show>
+        </div>
       </header>
+      <Show when={callError()}>
+        <p class="px-6 py-2 text-sm text-red-300">{callError()}</p>
+      </Show>
+      <Show when={showStage()}>
+        <section class="grid grid-cols-1 gap-3 border-b border-[var(--line)] px-6 py-4 md:grid-cols-2">
+          <Show when={localStream()}>
+            {(stream) => <MediaTile label="You" stream={stream()} muted />}
+          </Show>
+          <For each={remoteStreams()}>
+            {(item) => (
+              <MediaTile
+                label={authors().get(item.userId) ?? "Peer"}
+                stream={item.stream}
+              />
+            )}
+          </For>
+        </section>
+      </Show>
       <Show when={roomError()}>
         <p class="px-6 py-4 text-red-300">{roomError()}</p>
       </Show>

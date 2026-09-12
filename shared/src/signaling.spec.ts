@@ -39,6 +39,18 @@ describe("p2pEventSchema", () => {
     ).toBe(true);
   });
 
+  it("accepts a call-state event", () => {
+    expect(
+      p2pEventSchema.safeParse({
+        type: "call-state",
+        conversationId: "room-general",
+        inCall: true,
+        audio: true,
+        video: false,
+      }).success,
+    ).toBe(true);
+  });
+
   it("rejects an empty body", () => {
     expect(
       p2pEventSchema.safeParse({

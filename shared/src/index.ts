@@ -1,4 +1,10 @@
-export { AV_MESH_CAP, canAddAvPeer } from "./mesh.ts";
+export {
+  AV_MESH_CAP,
+  applyCallState,
+  avPeerCount,
+  canAddAvPeer,
+  type CallPresence,
+} from "./mesh.ts";
 export {
   loginSchema,
   signupSchema,

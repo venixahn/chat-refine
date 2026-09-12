@@ -111,6 +111,13 @@ export const p2pEventSchema = z.discriminatedUnion("type", [
     conversationId: z.string().min(1),
     messages: z.array(chatLineSchema).max(200),
   }),
+  z.object({
+    type: z.literal("call-state"),
+    conversationId: z.string().min(1),
+    inCall: z.boolean(),
+    audio: z.boolean(),
+    video: z.boolean(),
+  }),
 ]);
 
 export type P2pEvent = z.infer<typeof p2pEventSchema>;
