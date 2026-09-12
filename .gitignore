@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+coverage
+data/db.json
+!data/.gitkeep
+.env
+*.log
+.DS_Store
+playwright-report
+test-results
+blob-report
+.vite
+*.tsbuildinfo
