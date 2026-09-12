@@ -7,14 +7,14 @@ On-premises peer-to-peer chat: 1:1 and small-group **text, audio, and video**. Y
 Working today:
 
 - Public signup / sign-in / sign-out (Passport Local + session cookie)
-- Landing, auth pages, and a signed-in `/app` shell
-- Unit, API, coverage, and Playwright auth e2e
+- Room directory, group create/join, and 1:1 DMs
+- Authenticated signaling WebSocket (`GET /api/signal/ticket`, then `/ws`)
+- P2P text over WebRTC data channels, kept in local history
+- Landing, auth pages, and `/app` / `/app/c/:id`
+- Unit, API, coverage, and Playwright auth + two-peer chat e2e
 
 Not built yet:
 
-- Room directory and DMs
-- WebRTC signaling
-- P2P data-channel text
 - Audio / video mesh
 
 ## Stack
@@ -26,7 +26,7 @@ Not built yet:
 | Data | lowdb JSON (`data/db.json`, gitignored) |
 | Validation | Zod |
 | Auth | Passport Local + `express-session` |
-| Transport (planned) | WebRTC mesh; Nest WebSocket for SDP/ICE only |
+| Transport | WebRTC data-channel mesh; Nest WebSocket for SDP/ICE only |
 | FP / reactive | fp-ts (pure), Effect (IO), RxJS (streams), Solid signals (view) |
 | Tests | Vitest, Supertest, Playwright, V8 coverage |
 | Quality | ESLint, Husky (`pre-commit` tests, `pre-push` e2e) |
@@ -60,7 +60,7 @@ npm run dev
 - Client: [http://127.0.0.1:5173](http://127.0.0.1:5173)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite proxies `/api` to Nest. Create an account, then you should land on `/app`.
+Vite proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Chat bodies never hit the API — only join/SDP/ICE do.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 
@@ -68,7 +68,7 @@ Production shape (later): `npm run build`, then Nest serves `client/dist` plus `
 
 ```bash
 npm test          # Vitest + V8 coverage (shared + server)
-npm run test:e2e  # Playwright (signup, signin, sign-out, landing)
+npm run test:e2e  # Playwright (auth flows plus two-peer P2P text)
 npm run lint      # ESLint
 ```
 
@@ -89,7 +89,7 @@ Atomic commits, concise conventional messages (`feat:`, `fix:`, `test:`, `refact
 
 ```
 client/   Solid + Vite UI
-server/   NestJS API and (later) signaling
+server/   NestJS API and signaling WebSocket
 shared/   Zod schemas and pure helpers
 e2e/      Playwright
 data/     local JSON database (file gitignored)
