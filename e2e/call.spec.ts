@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
 
 const uniqueUser = (name: string) => {
   const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -24,7 +24,9 @@ const signup = async (
 test("two members join a P2P call", async ({ browser }) => {
   const adaUser = uniqueUser("ada");
   const bobUser = uniqueUser("bob");
-  const options = { permissions: ["camera", "microphone"] as const };
+  const options: BrowserContextOptions = {
+    permissions: ["camera", "microphone"],
+  };
   const adaContext = await browser.newContext(options);
   const bobContext = await browser.newContext(options);
   const ada = await adaContext.newPage();

@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { iceConfigSchema, parseIceServers } from "./ice.ts";
+import {
+  DEFAULT_ICE_SERVERS,
+  iceConfigSchema,
+  parseIceServers,
+} from "./ice.ts";
 
 describe("parseIceServers", () => {
-  it("returns empty for missing or blank input", () => {
-    expect(parseIceServers(undefined)).toEqual([]);
-    expect(parseIceServers("")).toEqual([]);
-    expect(parseIceServers("   ")).toEqual([]);
+  it("uses public Google STUN when input is missing, blank, or invalid", () => {
+    expect(parseIceServers(undefined)).toEqual(DEFAULT_ICE_SERVERS);
+    expect(parseIceServers("")).toEqual(DEFAULT_ICE_SERVERS);
+    expect(parseIceServers("   ")).toEqual(DEFAULT_ICE_SERVERS);
+    expect(parseIceServers("{")).toEqual(DEFAULT_ICE_SERVERS);
+    expect(parseIceServers('{"urls":"stun:lan:3478"}')).toEqual(
+      DEFAULT_ICE_SERVERS,
+    );
   });
 
-  it("returns empty for invalid JSON or a non-array", () => {
-    expect(parseIceServers("{")).toEqual([]);
-    expect(parseIceServers('{"urls":"stun:lan:3478"}')).toEqual([]);
+  it("keeps an explicit empty list for LAN-only host candidates", () => {
+    expect(parseIceServers("[]")).toEqual([]);
   });
 
   it("skips entries that are not ICE servers", () => {
@@ -30,7 +37,7 @@ describe("parseIceServers", () => {
     expect(parseIceServers(JSON.stringify([turn]))).toEqual([turn]);
   });
 
-  it("accepts a urls array and drops cloud STUN from it", () => {
+  it("keeps Google STUN next to a TURN urls array", () => {
     expect(
       parseIceServers(
         JSON.stringify([
@@ -42,19 +49,14 @@ describe("parseIceServers", () => {
           },
         ]),
       ),
-    ).toEqual([{ urls: ["turn:turn.lan:3478?transport=udp"] }]);
-  });
-
-  it("drops Google and Twilio ICE URLs", () => {
-    expect(
-      parseIceServers(
-        JSON.stringify([
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:global.stun.twilio.com:3478" },
-          { urls: "stun:stun.lan:3478" },
-        ]),
-      ),
-    ).toEqual([{ urls: "stun:stun.lan:3478" }]);
+    ).toEqual([
+      {
+        urls: [
+          "stun:stun.l.google.com:19302",
+          "turn:turn.lan:3478?transport=udp",
+        ],
+      },
+    ]);
   });
 });
 

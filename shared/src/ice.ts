@@ -19,61 +19,33 @@ export const iceConfigSchema = z.object({
 
 export type IceServer = z.infer<typeof iceServerSchema>;
 
-const iceUrlHost = (url: string): string | null => {
-  const match = /^(?:stun|stuns|turn|turns):(\[[^\]]+\]|[^:?]+)(?::\d+)?/i.exec(
-    url,
-  );
-  if (!match) {
-    return null;
-  }
-  return match[1].replace(/^\[|\]$/g, "").toLowerCase();
-};
-
-const isCloudHost = (host: string): boolean =>
-  host === "google.com" ||
-  host.endsWith(".google.com") ||
-  host === "twilio.com" ||
-  host.endsWith(".twilio.com");
-
-export const isCloudIceUrl = (url: string): boolean => {
-  const host = iceUrlHost(url);
-  return host !== null && isCloudHost(host);
-};
-
-const dropCloudUrls = (server: IceServer): IceServer | null => {
-  const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
-  const kept = urls.filter((url) => !isCloudIceUrl(url));
-  if (kept.length === 0) {
-    return null;
-  }
-  return {
-    ...server,
-    urls: Array.isArray(server.urls) ? kept : kept[0],
-  };
-};
+/** Public Google STUN. Used when ICE_SERVERS is unset so peers can cross NATs. */
+export const DEFAULT_ICE_SERVERS: IceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+];
 
 export const parseIceServers = (raw: string | undefined): IceServer[] => {
   if (!raw?.trim()) {
-    return [];
+    return DEFAULT_ICE_SERVERS;
   }
   let value: unknown;
   try {
     value = JSON.parse(raw);
   } catch {
-    return [];
+    return DEFAULT_ICE_SERVERS;
   }
   if (!Array.isArray(value)) {
-    return [];
+    return DEFAULT_ICE_SERVERS;
   }
   const servers: IceServer[] = [];
   for (const item of value) {
     const parsed = iceServerSchema.safeParse(item);
-    if (!parsed.success) {
-      continue;
-    }
-    const cleaned = dropCloudUrls(parsed.data);
-    if (cleaned) {
-      servers.push(cleaned);
+    if (parsed.success) {
+      servers.push(parsed.data);
     }
   }
   return servers;
