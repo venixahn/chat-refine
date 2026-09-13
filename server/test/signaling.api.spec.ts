@@ -308,4 +308,17 @@ describe("signaling API", () => {
     adaSocket.close();
     bobSocket.close();
   });
+
+  it("rejects an sfu-offer before the session joins", async () => {
+    const adaAgent = request.agent(app.getHttpServer());
+    await adaAgent.post("/api/auth/signup").send(ada);
+    const adaTicket = await adaAgent.get("/api/signal/ticket");
+    const adaSocket = await openSocket(port, adaTicket.body.ticket);
+    const notJoined = nextEvent(adaSocket, (event) => event.type === "error");
+    adaSocket.send(
+      JSON.stringify({ type: "sfu-offer", conversationId: "room-general", sdp: "v=0" }),
+    );
+    expect(await notJoined).toMatchObject({ code: "not-joined" });
+    adaSocket.close();
+  });
 });

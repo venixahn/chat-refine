@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const AV_MESH_CAP = 6;
+/** Call size cap. A/V goes through the Nest SFU, so this is no longer a mesh degree. */
+export const AV_MESH_CAP = 16;
+
+export const sfuSubscribers = (
+  publisherId: string,
+  memberIds: readonly string[],
+): string[] => memberIds.filter((id) => id !== publisherId);
 
 export const canAddAvPeer = (currentPeerCount: number): boolean =>
   currentPeerCount < AV_MESH_CAP;

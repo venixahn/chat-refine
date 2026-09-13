@@ -11,7 +11,7 @@ Working on `develop`:
 - Desktop notifications (opt-in **Notify**)
 - Edit display name and avatar
 - Light markdown in messages
-- 1:1 and small-group audio/video mesh (join/leave, mute, camera, cap 6)
+- 1:1 and group audio/video via Nest SFU (join/leave, mute, camera, cap 16)
 - Stacked mobile layout
 
-A/V mesh cap is `AV_MESH_CAP` (default 6). Media goes only to peers in the call. Text-only rooms can be larger.
+A/V cap is `AV_MESH_CAP` (16). Each caller uploads once; Nest forwards to the others. Text-only rooms can be larger.

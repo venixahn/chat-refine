@@ -6,9 +6,10 @@ import {
   canAddAvPeer,
   mediaPeerIds,
   shouldIgnoreOffer,
+  sfuSubscribers,
 } from "./mesh.ts";
 
-describe("A/V mesh cap", () => {
+describe("A/V call cap", () => {
   it("allows peers below the cap", () => {
     expect(canAddAvPeer(0)).toBe(true);
     expect(canAddAvPeer(AV_MESH_CAP - 1)).toBe(true);
@@ -49,6 +50,13 @@ describe("mediaPeerIds", () => {
     ];
     expect(mediaPeerIds("ada", true, roster)).toEqual(["bob"]);
     expect(mediaPeerIds("ada", false, roster)).toEqual([]);
+  });
+});
+
+describe("sfuSubscribers", () => {
+  it("forwards to every member except the publisher", () => {
+    expect(sfuSubscribers("ada", ["ada", "bob", "cam"])).toEqual(["bob", "cam"]);
+    expect(sfuSubscribers("ada", ["ada"])).toEqual([]);
   });
 });
 

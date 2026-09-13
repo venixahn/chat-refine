@@ -7,6 +7,7 @@ import {
 import type { IncomingMessage } from "node:http";
 import {
   AV_MESH_CAP,
+  isSfuFrame,
   signalingFrameSchema,
   type SignalingFrame,
   type SignalingPeer,
@@ -17,6 +18,7 @@ import { AuthService } from "../auth/auth.service.ts";
 import type { PublicProfile } from "../db/schema.ts";
 import { RoomsService } from "../rooms/rooms.service.ts";
 import { CallRosterService } from "./call-roster.service.ts";
+import { SfuService } from "./sfu.service.ts";
 import { SignalTicketService } from "./signal-ticket.service.ts";
 import { SignalingHub } from "./signaling.hub.ts";
 
@@ -58,6 +60,7 @@ export class SignalingGateway
     @Inject(RoomsService) private readonly rooms: RoomsService,
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(CallRosterService) private readonly calls: CallRosterService,
+    @Inject(SfuService) private readonly sfu: SfuService,
   ) {}
 
   handleConnection(client: WebSocket, request: IncomingMessage): void {
@@ -146,11 +149,16 @@ export class SignalingGateway
       this.onCallState(client, session, frame);
       return;
     }
+    if (isSfuFrame(frame)) {
+      this.onSfu(client, session, frame);
+      return;
+    }
     this.onRelay(client, session, frame);
   }
 
   private leaveRoom(session: Session, conversationId: string): void {
     session.joined.delete(conversationId);
+    void this.sfu.leave(conversationId, session.profile.id);
     this.publishCallDrop(session.profile.id, conversationId);
     this.hub.publish({
       conversationId,
@@ -286,6 +294,9 @@ export class SignalingGateway
       });
       return;
     }
+    if (!frame.inCall) {
+      void this.sfu.leave(frame.conversationId, session.profile.id);
+    }
     if (!result.changed) {
       return;
     }
@@ -301,6 +312,54 @@ export class SignalingGateway
         video: frame.video,
       },
     });
+  }
+
+  private onSfu(
+    client: WebSocket,
+    session: Session,
+    frame: Extract<SignalingFrame, { type: "sfu-offer" | "sfu-answer" | "sfu-ice" }>,
+  ): void {
+    if (!session.joined.has(frame.conversationId)) {
+      send(client, {
+        type: "error",
+        code: "not-joined",
+        message: "Join the room before signaling",
+      });
+      return;
+    }
+    if (!this.rooms.isMember(session.profile.id, frame.conversationId)) {
+      send(client, {
+        type: "error",
+        code: "forbidden",
+        message: "Not a member of this room",
+      });
+      return;
+    }
+    void this.dispatchSfu(session.profile.id, frame);
+  }
+
+  private async dispatchSfu(
+    userId: string,
+    frame: Extract<SignalingFrame, { type: "sfu-offer" | "sfu-answer" | "sfu-ice" }>,
+  ): Promise<void> {
+    try {
+      await this.runSfu(userId, frame);
+    } catch {
+      // Drop a failed SFU negotiation; the client can offer again.
+    }
+  }
+
+  private runSfu(
+    userId: string,
+    frame: Extract<SignalingFrame, { type: "sfu-offer" | "sfu-answer" | "sfu-ice" }>,
+  ): Promise<void> {
+    if (frame.type === "sfu-offer") {
+      return this.sfu.handleOffer(frame.conversationId, userId, frame.sdp);
+    }
+    if (frame.type === "sfu-answer") {
+      return this.sfu.handleAnswer(frame.conversationId, userId, frame.sdp);
+    }
+    return this.sfu.handleIce(frame.conversationId, userId, frame.candidate);
   }
 
   private onRelay(

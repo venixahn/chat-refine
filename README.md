@@ -1,6 +1,6 @@
 # chat-refine
 
-On-premises peer-to-peer chat: 1:1 and small-group **text, audio, and video**. You sign up on *this* server. Live text and call media travel over **WebRTC** between browsers. NestJS does auth, rooms, signaling, and **persisted chat history** so inbox, unread, and other devices stay in sync. Call media never goes through Nest.
+On-premises peer-to-peer chat: 1:1 and group **text, audio, and video**. You sign up on *this* server. Live text travels over **WebRTC** between browsers. Call media goes to Nest’s SFU once per caller and is forwarded to the others. Nest also does auth, rooms, signaling, and **persisted chat history**.
 
 ## Current status
 
@@ -16,12 +16,12 @@ Working today:
 - Desktop notifications when a peer messages you (opt-in)
 - Edit display name and avatar
 - Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
-- 1:1 and small-group audio/video mesh (join/leave, mute, camera; media only among in-call peers)
+- 1:1 and group audio/video via a Nest SFU (join/leave, mute, camera; one upload per caller)
 - Landing, auth pages, and `/app` / `/app/c/:id`
 - Stacked mobile layout (rooms list, then thread with a Rooms back link)
 - Unit, API, coverage, and Playwright auth, chat, call, inbox, and mobile e2e
 
-A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. Peers across the internet use public Google STUN by default. Set `ICE_SERVERS=[]` for LAN-only host candidates, or add your own TURN for hard NAT.
+A/V cap is **16 peers** (`AV_MESH_CAP`). Each caller sends media to Nest; Nest forwards it (SFU). Text-only rooms can be larger. Peers across the internet use public Google STUN by default. Set `ICE_SERVERS=[]` for LAN-only host candidates, or add your own TURN for hard NAT.
 
 ## Stack
 
@@ -32,7 +32,7 @@ A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. Peer
 | Data | lowdb JSON (`data/db.json`, gitignored) |
 | Validation | Zod |
 | Auth | Passport Local + `express-session` |
-| Transport | WebRTC data-channel + media mesh; Nest stores history and signals SDP/ICE |
+| Transport | WebRTC data-channel mesh for live text; Nest SFU for call media; Nest stores history and signals SDP/ICE |
 | FP / reactive | fp-ts (pure), Effect (IO), RxJS (streams), Solid signals (view) |
 | Tests | Vitest, Supertest, Playwright, V8 coverage |
 | Quality | ESLint, Husky (`pre-commit` tests, `pre-push` e2e) |
@@ -66,7 +66,7 @@ npm run dev
 - Client: [http://127.0.0.1:5173](http://127.0.0.1:5173) (also on your LAN IP)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Call media never hits the API — only join/SDP/ICE do. Join a call from the conversation header. Click your name to edit display name or avatar. Use **Notify** if you want desktop alerts while another tab is focused.
+Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Join a call from the conversation header — your camera and mic go to Nest, which forwards them. Click your name to edit display name or avatar. Use **Notify** if you want desktop alerts while another tab is focused.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 
