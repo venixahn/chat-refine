@@ -46,6 +46,46 @@ const matchesQuery = (profile: PublicProfile, needle: string) =>
   profile.username.toLowerCase().includes(needle) ||
   profile.displayName.toLowerCase().includes(needle);
 
+const firstText = (...values: Array<string | undefined>): string =>
+  values.find((value) => Boolean(value)) ?? "Direct message";
+
+const membersOf = (room: Conversation, data: DbSchema): PublicProfile[] =>
+  data.conversationMembers
+    .filter((member) => member.conversationId === room.id)
+    .flatMap((member) => {
+      const profile = data.profiles.find((item) => item.id === member.userId);
+      return profile ? [toPublicProfile(profile)] : [];
+    });
+
+const roomTitle = (
+  room: Conversation,
+  members: PublicProfile[],
+  viewerId: string,
+): string => {
+  if (room.kind !== "dm") {
+    return room.name ?? "Room";
+  }
+  const peer = members.find((member) => member.id !== viewerId);
+  return firstText(peer?.displayName, peer?.username, room.name);
+};
+
+const toRoomView = (
+  room: Conversation,
+  viewerId: string,
+  data: DbSchema,
+): RoomView => {
+  const members = membersOf(room, data);
+  return {
+    id: room.id,
+    kind: room.kind,
+    slug: room.slug,
+    name: room.name,
+    title: roomTitle(room, members, viewerId),
+    createdAt: room.createdAt,
+    members,
+  };
+};
+
 @Injectable()
 export class RoomsService {
   constructor(@Inject(DbService) private readonly db: DbService) {}
@@ -70,7 +110,7 @@ export class RoomsService {
         ),
       ),
       filter(isSome),
-      map((option) => this.view(option.value, userId, data)),
+      map((option) => toRoomView(option.value, userId, data)),
     );
   }
 
@@ -79,7 +119,7 @@ export class RoomsService {
     return data.conversations
       .filter((room) => room.kind === "group")
       .map((room) => ({
-        ...this.view(room, userId, data),
+        ...toRoomView(room, userId, data),
         joined: isMemberOf(data.conversationMembers, room.id, userId),
       }));
   }
@@ -96,12 +136,11 @@ export class RoomsService {
     if (isNone(room) || !isMemberOf(data.conversationMembers, conversationId, userId)) {
       return Effect.fail(new NotAMember());
     }
-    return Effect.succeed(this.view(room.value, userId, data));
+    return Effect.succeed(toRoomView(room.value, userId, data));
   }
 
   createGroup(userId: string, input: CreateGroupInput) {
     const db = this.db;
-    const view = this.view.bind(this);
     return Effect.tryPromise({
       try: () =>
         db.update((data) => {
@@ -117,7 +156,7 @@ export class RoomsService {
             conversationId: room.id,
             userId,
           });
-          return view(room, userId, data);
+          return toRoomView(room, userId, data);
         }),
       catch: (error) => new Error(String(error)),
     });
@@ -125,7 +164,6 @@ export class RoomsService {
 
   joinGroup(userId: string, conversationId: string) {
     const db = this.db;
-    const view = this.view.bind(this);
     const room = pipe(
       db.snapshot().conversations,
       findFirst((item) => item.id === conversationId && item.kind === "group"),
@@ -139,7 +177,7 @@ export class RoomsService {
           if (!isMemberOf(current.conversationMembers, conversationId, userId)) {
             current.conversationMembers.push({ conversationId, userId });
           }
-          return view(room.value, userId, current);
+          return toRoomView(room.value, userId, current);
         }),
       catch: (error) => new Error(String(error)),
     });
@@ -147,7 +185,6 @@ export class RoomsService {
 
   openDm(userId: string, username: string) {
     const db = this.db;
-    const view = this.view.bind(this);
     const peer = pipe(
       db.snapshot().profiles,
       findFirst((profile) => profile.username === username),
@@ -167,7 +204,7 @@ export class RoomsService {
             findFirst((item) => item.kind === "dm" && item.slug === key),
           );
           if (isSome(existing)) {
-            return { room: view(existing.value, userId, data), created: false };
+            return { room: toRoomView(existing.value, userId, data), created: false };
           }
           const room: Conversation = {
             id: randomUUID(),
@@ -181,7 +218,7 @@ export class RoomsService {
             { conversationId: room.id, userId },
             { conversationId: room.id, userId: peer.value.id },
           );
-          return { room: view(room, userId, data), created: true };
+          return { room: toRoomView(room, userId, data), created: true };
         }),
       catch: (error) => new Error(String(error)),
     });
@@ -194,32 +231,5 @@ export class RoomsService {
       .profiles.filter((profile) => profile.id !== userId)
       .map(toPublicProfile)
       .filter((profile) => matchesQuery(profile, needle));
-  }
-
-  private view(
-    room: Conversation,
-    viewerId: string,
-    data: DbSchema,
-  ): RoomView {
-    const members = data.conversationMembers
-      .filter((member) => member.conversationId === room.id)
-      .flatMap((member) => {
-        const profile = data.profiles.find((item) => item.id === member.userId);
-        return profile ? [toPublicProfile(profile)] : [];
-      });
-    const peer = members.find((member) => member.id !== viewerId);
-    const title =
-      room.kind === "dm"
-        ? (peer?.displayName ?? peer?.username ?? room.name ?? "Direct message")
-        : (room.name ?? "Room");
-    return {
-      id: room.id,
-      kind: room.kind,
-      slug: room.slug,
-      name: room.name,
-      title,
-      createdAt: room.createdAt,
-      members,
-    };
   }
 }

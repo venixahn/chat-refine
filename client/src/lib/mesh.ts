@@ -40,6 +40,9 @@ const parseCandidate = (candidate: string): RTCIceCandidateInit | null => {
   }
 };
 
+const isAvSender = (sender: RTCRtpSender) =>
+  sender.track?.kind === "audio" || sender.track?.kind === "video";
+
 export const createMesh = (input: {
   conversationId: string;
   selfId: string;
@@ -58,6 +61,16 @@ export const createMesh = (input: {
 
   const politeToward = (peerId: string) => input.selfId > peerId;
 
+  const addQueuedIce = async (pc: RTCPeerConnection, queued: string[]) => {
+    for (const candidate of queued) {
+      const parsed = parseCandidate(candidate);
+      if (!parsed) {
+        continue;
+      }
+      await pc.addIceCandidate(parsed);
+    }
+  };
+
   const flushIce = async (userId: string) => {
     const link = peers.get(userId);
     const queued = pendingIce.get(userId) ?? [];
@@ -65,12 +78,7 @@ export const createMesh = (input: {
     if (!link?.pc.remoteDescription) {
       return;
     }
-    for (const candidate of queued) {
-      const parsed = parseCandidate(candidate);
-      if (parsed) {
-        await link.pc.addIceCandidate(parsed);
-      }
-    }
+    await addQueuedIce(link.pc, queued);
   };
 
   const sendOffer = (peer: SignalingPeer, sdp: string) => {
@@ -165,17 +173,17 @@ export const createMesh = (input: {
     }
   };
 
-  const ensurePc = (peer: SignalingPeer, asOfferer: boolean): PeerLink => {
-    const existing = peers.get(peer.userId);
-    if (existing && existing.pc.connectionState !== "closed") {
-      return existing;
-    }
-    if (existing) {
-      drop(peer.userId);
-    }
-    const pc = new RTCPeerConnection(iceConfig);
-    const link: PeerLink = { peer, pc, subscriptions: [] };
-    peers.set(peer.userId, link);
+  const publishRemoteTrack = (peerId: string, event: RTCTrackEvent) => {
+    const stream = event.streams[0] ?? new MediaStream([event.track]);
+    const publish = () => {
+      const live = stream.getTracks().some((track) => track.readyState === "live");
+      input.onRemoteStream?.(peerId, live ? stream : null);
+    };
+    event.track.addEventListener("ended", publish);
+    publish();
+  };
+
+  const wirePeerConnection = (peer: SignalingPeer, pc: RTCPeerConnection, link: PeerLink) => {
     link.subscriptions.push(
       fromEvent<RTCPeerConnectionIceEvent>(pc, "icecandidate").subscribe(
         (event) => {
@@ -195,14 +203,28 @@ export const createMesh = (input: {
       bindChannel(peer.userId, event.channel);
     });
     pc.addEventListener("track", (event) => {
-      const stream = event.streams[0] ?? new MediaStream([event.track]);
-      const publish = () => {
-        const live = stream.getTracks().some((track) => track.readyState === "live");
-        input.onRemoteStream?.(peer.userId, live ? stream : null);
-      };
-      event.track.addEventListener("ended", publish);
-      publish();
+      publishRemoteTrack(peer.userId, event);
     });
+  };
+
+  const liveLink = (peer: SignalingPeer): PeerLink | undefined => {
+    const existing = peers.get(peer.userId);
+    if (existing?.pc.connectionState === "closed") {
+      drop(peer.userId);
+      return undefined;
+    }
+    return existing;
+  };
+
+  const ensurePc = (peer: SignalingPeer, asOfferer: boolean): PeerLink => {
+    const existing = liveLink(peer);
+    if (existing) {
+      return existing;
+    }
+    const pc = new RTCPeerConnection(iceConfig);
+    const link: PeerLink = { peer, pc, subscriptions: [] };
+    peers.set(peer.userId, link);
+    wirePeerConnection(peer, pc, link);
     if (localStream) {
       attachToPc(pc, localStream);
     }
@@ -212,18 +234,27 @@ export const createMesh = (input: {
     return link;
   };
 
-  const answerOffer = async (link: PeerLink, sdp: string) => {
+  const rollbackIfNeeded = async (link: PeerLink): Promise<boolean> => {
     const glare =
       makingOffer.has(link.peer.userId) || link.pc.signalingState !== "stable";
-    if (glare) {
-      if (!politeToward(link.peer.userId)) {
-        return;
-      }
-      try {
-        await link.pc.setLocalDescription({ type: "rollback" });
-      } catch {
-        return;
-      }
+    if (!glare) {
+      return true;
+    }
+    if (!politeToward(link.peer.userId)) {
+      return false;
+    }
+    try {
+      await link.pc.setLocalDescription({ type: "rollback" });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const answerOffer = async (link: PeerLink, sdp: string) => {
+    const ready = await rollbackIfNeeded(link);
+    if (!ready) {
+      return;
     }
     await link.pc.setRemoteDescription({ type: "offer", sdp });
     await flushIce(link.peer.userId);
@@ -282,7 +313,7 @@ export const createMesh = (input: {
       localStream = null;
       for (const link of peers.values()) {
         for (const sender of link.pc.getSenders()) {
-          if (sender.track && (sender.track.kind === "audio" || sender.track.kind === "video")) {
+          if (isAvSender(sender)) {
             link.pc.removeTrack(sender);
           }
         }

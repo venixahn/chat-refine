@@ -36,6 +36,14 @@ const send = (client: WebSocket, payload: unknown): void => {
   }
 };
 
+const readJson = (raw: WebSocket.RawData): unknown => {
+  try {
+    return JSON.parse(String(raw));
+  } catch {
+    return undefined;
+  }
+};
+
 @WebSocketGateway({ path: "/ws" })
 export class SignalingGateway
   implements OnGatewayConnection, OnGatewayDisconnect
@@ -97,10 +105,8 @@ export class SignalingGateway
     if (!session) {
       return;
     }
-    let parsedJson: unknown;
-    try {
-      parsedJson = JSON.parse(String(raw));
-    } catch {
+    const parsedJson = readJson(raw);
+    if (parsedJson === undefined) {
       send(client, {
         type: "error",
         code: "bad-frame",
@@ -117,7 +123,14 @@ export class SignalingGateway
       });
       return;
     }
-    const frame = parsed.data;
+    this.dispatchFrame(client, session, parsed.data);
+  }
+
+  private dispatchFrame(
+    client: WebSocket,
+    session: Session,
+    frame: SignalingFrame,
+  ): void {
     if (frame.type === "join") {
       this.onJoin(client, session, frame.conversationId);
       return;

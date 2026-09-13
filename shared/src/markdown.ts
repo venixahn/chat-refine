@@ -58,33 +58,63 @@ const findCode = (value: string) => {
   };
 };
 
-const findLink = (value: string) => {
-  const open = value.indexOf("[");
-  const mid = open === -1 ? -1 : value.indexOf("](", open);
-  if (open === -1 || mid === -1) {
-    return null;
+const parenDelta = (ch: string | undefined): number => {
+  if (ch === "(") {
+    return 1;
   }
+  if (ch === ")") {
+    return -1;
+  }
+  return 0;
+};
+
+const closeParenAt = (value: string, start: number): number | null => {
   let depth = 1;
-  let cursor = mid + 2;
+  let cursor = start;
   while (cursor < value.length && depth > 0) {
-    if (value[cursor] === "(") {
-      depth += 1;
-    } else if (value[cursor] === ")") {
-      depth -= 1;
-    }
+    depth += parenDelta(value[cursor]);
     cursor += 1;
   }
   if (depth !== 0) {
     return null;
   }
-  const label = value.slice(open + 1, mid);
-  const href = value.slice(mid + 2, cursor - 1);
+  return cursor;
+};
+
+const linkSpan = (value: string): { open: number; mid: number } | null => {
+  const open = value.indexOf("[");
+  if (open === -1) {
+    return null;
+  }
+  const mid = value.indexOf("](", open);
+  if (mid === -1) {
+    return null;
+  }
+  return { open, mid };
+};
+
+const linkNode = (label: string, href: string): MdNode => {
+  if (isSafeHref(href)) {
+    return { type: "a", href, value: label };
+  }
+  return { type: "text", value: label };
+};
+
+const findLink = (value: string) => {
+  const span = linkSpan(value);
+  if (!span) {
+    return null;
+  }
+  const cursor = closeParenAt(value, span.mid + 2);
+  if (cursor === null) {
+    return null;
+  }
+  const label = value.slice(span.open + 1, span.mid);
+  const href = value.slice(span.mid + 2, cursor - 1);
   return {
-    at: open,
-    length: cursor - open,
-    node: isSafeHref(href)
-      ? { type: "a" as const, href, value: label }
-      : { type: "text" as const, value: label },
+    at: span.open,
+    length: cursor - span.open,
+    node: linkNode(label, href),
   };
 };
 
@@ -127,24 +157,23 @@ const escapeHtml = (value: string): string =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
-const nodeToHtml = (node: MdNode): string => {
-  switch (node.type) {
-    case "br":
-      return "<br />";
-    case "strong":
-      return `<strong>${escapeHtml(node.value)}</strong>`;
-    case "em":
-      return `<em>${escapeHtml(node.value)}</em>`;
-    case "code":
-      return `<code>${escapeHtml(node.value)}</code>`;
-    case "pre":
-      return `<pre><code>${escapeHtml(node.value)}</code></pre>`;
-    case "a":
-      return `<a href="${escapeHtml(node.href)}" rel="noreferrer noopener" target="_blank">${escapeHtml(node.value)}</a>`;
-    default:
-      return escapeHtml(node.value);
-  }
-};
+const wrapHtml = (tag: string, value: string): string =>
+  `<${tag}>${escapeHtml(value)}</${tag}>`;
+
+const nodeHtml: { [K in MdNode["type"]]: (node: Extract<MdNode, { type: K }>) => string } =
+  {
+    br: () => "<br />",
+    text: (node) => escapeHtml(node.value),
+    strong: (node) => wrapHtml("strong", node.value),
+    em: (node) => wrapHtml("em", node.value),
+    code: (node) => wrapHtml("code", node.value),
+    pre: (node) => `<pre><code>${escapeHtml(node.value)}</code></pre>`,
+    a: (node) =>
+      `<a href="${escapeHtml(node.href)}" rel="noreferrer noopener" target="_blank">${escapeHtml(node.value)}</a>`,
+  };
+
+const nodeToHtml = (node: MdNode): string =>
+  (nodeHtml[node.type] as (value: MdNode) => string)(node);
 
 export const parseMarkdown = (source: string): MdNode[] => {
   const initial: MdNode[] = [{ type: "text", value: source }];

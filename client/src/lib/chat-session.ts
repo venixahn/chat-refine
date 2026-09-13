@@ -5,6 +5,8 @@ import {
   iceConfigSchema,
   type CallPresence,
   type ChatMessage,
+  type P2pEvent,
+  type SignalingEvent,
   type SignalingPeer,
 } from "@chat-refine/shared";
 import { Subject } from "rxjs";
@@ -109,6 +111,38 @@ export const startChatSession = async (input: {
     input.onMessages(messages);
   };
 
+  const onPeerEvent = (fromUserId: string, event: P2pEvent) => {
+    if (event.type === "message") {
+      apply({
+        clientMessageId: event.clientMessageId,
+        conversationId: event.conversationId,
+        body: event.body,
+        createdAt: event.createdAt,
+        fromUserId,
+      });
+      return;
+    }
+    if (event.type === "typing") {
+      typingUntil.set(fromUserId, Date.now() + 2500);
+      refreshTyping();
+      return;
+    }
+    if (event.type === "history_request") {
+      mesh.sendTo(fromUserId, {
+        type: "history_batch",
+        conversationId: input.conversationId,
+        messages,
+      });
+      return;
+    }
+    if (event.type === "history_batch") {
+      event.messages.forEach(apply);
+      return;
+    }
+    callRoster = applyCallState(callRoster, fromUserId, event);
+    publishCall();
+  };
+
   const currentCallState = () => ({
     type: "call-state" as const,
     conversationId: input.conversationId,
@@ -149,39 +183,7 @@ export const startChatSession = async (input: {
       publishRemote();
     },
     onEvent: (fromUserId, event) => {
-      if (event.type === "message") {
-        apply({
-          clientMessageId: event.clientMessageId,
-          conversationId: event.conversationId,
-          body: event.body,
-          createdAt: event.createdAt,
-          fromUserId,
-        });
-        return;
-      }
-      if (event.type === "typing") {
-        typingUntil.set(fromUserId, Date.now() + 2500);
-        refreshTyping();
-        return;
-      }
-      if (event.type === "history_request") {
-        mesh.sendTo(fromUserId, {
-          type: "history_batch",
-          conversationId: input.conversationId,
-          messages,
-        });
-        return;
-      }
-      if (event.type === "history_batch") {
-        for (const item of event.messages) {
-          apply(item);
-        }
-        return;
-      }
-      if (event.type === "call-state") {
-        callRoster = applyCallState(callRoster, fromUserId, event);
-        publishCall();
-      }
+      onPeerEvent(fromUserId, event);
     },
     onState: () => {
       const open = mesh.openCount();
@@ -195,53 +197,64 @@ export const startChatSession = async (input: {
     },
   });
 
-  const subscription = signal.events$.subscribe((event) => {
-    if (event.type === "joined") {
-      for (const peer of event.peers) {
-        roster.set(peer.userId, peer);
-      }
-      publishPeers();
-      input.onStatus(
-        event.peers.length === 0 ? "Waiting for peers" : "Connecting peers…",
-      );
-      return;
+  const onJoined = (event: Extract<SignalingEvent, { type: "joined" }>) => {
+    for (const peer of event.peers) {
+      roster.set(peer.userId, peer);
     }
-    if (event.type === "peer-joined") {
+    publishPeers();
+    input.onStatus(
+      event.peers.length === 0 ? "Waiting for peers" : "Connecting peers…",
+    );
+  };
+
+  const onPeerLeft = (userId: string) => {
+    roster.delete(userId);
+    typingUntil.delete(userId);
+    callRoster = applyCallState(callRoster, userId, {
+      inCall: false,
+      audio: false,
+      video: false,
+    });
+    mesh.drop(userId);
+    publishPeers();
+    publishCall();
+    refreshTyping();
+  };
+
+  const signalHandlers: {
+    [K in SignalingEvent["type"]]?: (event: Extract<SignalingEvent, { type: K }>) => void;
+  } = {
+    joined: onJoined,
+    "peer-joined": (event) => {
       roster.set(event.peer.userId, event.peer);
       publishPeers();
       void mesh.offerTo(event.peer);
-      return;
-    }
-    if (event.type === "peer-left") {
-      roster.delete(event.userId);
-      typingUntil.delete(event.userId);
-      callRoster = applyCallState(callRoster, event.userId, {
-        inCall: false,
-        audio: false,
-        video: false,
-      });
-      mesh.drop(event.userId);
-      publishPeers();
-      publishCall();
-      refreshTyping();
-      return;
-    }
-    if (event.type === "offer") {
+    },
+    "peer-left": (event) => {
+      onPeerLeft(event.userId);
+    },
+    offer: (event) => {
       void mesh.acceptOffer(
         roster.get(event.fromUserId) ?? stubPeer(event.fromUserId),
         event.sdp,
       );
-      return;
-    }
-    if (event.type === "answer") {
+    },
+    answer: (event) => {
       void mesh.handleAnswer(event.fromUserId, event.sdp);
-      return;
-    }
-    if (event.type === "ice") {
+    },
+    ice: (event) => {
       void mesh.handleIce(event.fromUserId, event.candidate);
-      return;
-    }
-    input.onStatus(event.message);
+    },
+    error: (event) => {
+      input.onStatus(event.message);
+    },
+  };
+
+  const subscription = signal.events$.subscribe((event) => {
+    const handle = signalHandlers[event.type] as
+      | ((value: SignalingEvent) => void)
+      | undefined;
+    handle?.(event);
   });
 
   signal.send({ type: "join", conversationId: input.conversationId });
@@ -262,6 +275,46 @@ export const startChatSession = async (input: {
     await mesh.renegotiate();
     mesh.broadcast(currentCallState());
     input.onCallError(null);
+  };
+
+  const hasLiveVideo = () =>
+    Boolean(
+      localStream?.getVideoTracks().some((track) => track.readyState === "live"),
+    );
+
+  const addCameraTrack = async () => {
+    const extra = await navigator.mediaDevices.getUserMedia({ video: true });
+    const video = extra.getVideoTracks()[0];
+    if (!video || !localStream) {
+      return;
+    }
+    localStream.addTrack(video);
+    await mesh.replaceMediaTrack("video", video);
+  };
+
+  const stripVideoTracks = async () => {
+    if (!localStream) {
+      return;
+    }
+    localStream.getVideoTracks().forEach((track) => {
+      track.stop();
+      localStream?.removeTrack(track);
+    });
+    await mesh.replaceMediaTrack("video", null);
+  };
+
+  const applyCamera = async (on: boolean) => {
+    if (!on) {
+      await stripVideoTracks();
+      return;
+    }
+    if (hasLiveVideo()) {
+      localStream?.getVideoTracks().forEach((track) => {
+        track.enabled = true;
+      });
+      return;
+    }
+    await addCameraTrack();
   };
 
   return {
@@ -324,30 +377,11 @@ export const startChatSession = async (input: {
       if (!inCall || !localStream) {
         return;
       }
-      if (on) {
-        if (localStream.getVideoTracks().some((track) => track.readyState === "live")) {
-          localStream.getVideoTracks().forEach((track) => {
-            track.enabled = true;
-          });
-        } else {
-          try {
-            const extra = await navigator.mediaDevices.getUserMedia({ video: true });
-            const video = extra.getVideoTracks()[0];
-            if (video) {
-              localStream.addTrack(video);
-              await mesh.replaceMediaTrack("video", video);
-            }
-          } catch {
-            input.onCallError("Could not start the camera");
-            return;
-          }
-        }
-      } else {
-        for (const track of localStream.getVideoTracks()) {
-          track.stop();
-          localStream.removeTrack(track);
-        }
-        await mesh.replaceMediaTrack("video", null);
+      try {
+        await applyCamera(on);
+      } catch {
+        input.onCallError("Could not start the camera");
+        return;
       }
       input.onLocalStream(localStream);
       mesh.broadcast(currentCallState());

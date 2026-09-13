@@ -28,25 +28,25 @@ export const DEFAULT_ICE_SERVERS: IceServer[] = [
   { urls: "stun:stun4.l.google.com:19302" },
 ];
 
-export const parseIceServers = (raw: string | undefined): IceServer[] => {
-  if (!raw?.trim()) {
-    return DEFAULT_ICE_SERVERS;
-  }
-  let value: unknown;
+const parseIceJson = (raw: string): unknown => {
   try {
-    value = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
+    return undefined;
+  }
+};
+
+export const parseIceServers = (raw: string | undefined): IceServer[] => {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
     return DEFAULT_ICE_SERVERS;
   }
+  const value = parseIceJson(trimmed);
   if (!Array.isArray(value)) {
     return DEFAULT_ICE_SERVERS;
   }
-  const servers: IceServer[] = [];
-  for (const item of value) {
+  return value.flatMap((item) => {
     const parsed = iceServerSchema.safeParse(item);
-    if (parsed.success) {
-      servers.push(parsed.data);
-    }
-  }
-  return servers;
+    return parsed.success ? [parsed.data] : [];
+  });
 };

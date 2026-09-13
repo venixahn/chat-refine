@@ -23,6 +23,7 @@ export default tseslint.config(
       },
     },
     rules: {
+      complexity: ["error", { max: 10 }],
       "@typescript-eslint/consistent-type-imports": [
         "error",
         { prefer: "type-imports", fixStyle: "inline-type-imports" },

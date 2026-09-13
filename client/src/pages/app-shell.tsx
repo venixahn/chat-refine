@@ -23,6 +23,20 @@ import {
 const matches = (value: string, query: string) =>
   value.toLowerCase().includes(query.toLowerCase());
 
+const asideClass = (thread: boolean) =>
+  `flex w-full shrink-0 flex-col border-r border-[var(--line)] bg-[var(--surface)] md:w-72 ${
+    thread ? "hidden md:flex" : "flex"
+  }`;
+
+const paneClass = (thread: boolean) =>
+  `min-w-0 flex-1 ${thread ? "flex" : "hidden md:flex"}`;
+
+const profileName = (profile: PublicProfile | null | undefined) =>
+  profile?.displayName ?? "Loading…";
+
+const profileHandle = (profile: PublicProfile | null | undefined) =>
+  profile?.username ?? "…";
+
 export const AppShell = (props: { children?: JSX.Element }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -159,20 +173,16 @@ export const AppShell = (props: { children?: JSX.Element }) => {
 
   return (
     <div class="flex min-h-screen bg-[var(--bg)]">
-      <aside
-        class={`flex w-full shrink-0 flex-col border-r border-[var(--line)] bg-[var(--surface)] md:w-72 ${
-          inThread() ? "hidden md:flex" : "flex"
-        }`}
-      >
+      <aside class={asideClass(inThread())}>
         <div class="border-b border-[var(--line)] px-5 py-5">
           <p class="text-xs tracking-[0.2em] text-[var(--accent)] uppercase">
             Signed in
           </p>
           <h1 class="mt-2 text-2xl font-semibold">
-            {profile()?.displayName ?? "Loading…"}
+            {profileName(profile())}
           </h1>
           <p class="text-sm text-[var(--muted)]">
-            @{profile()?.username ?? "…"}
+            @{profileHandle(profile())}
           </p>
         </div>
         <div class="flex-1 space-y-6 overflow-y-auto px-4 py-5">
@@ -290,9 +300,7 @@ export const AppShell = (props: { children?: JSX.Element }) => {
           </button>
         </div>
       </aside>
-      <div
-        class={`min-w-0 flex-1 ${inThread() ? "flex" : "hidden md:flex"}`}
-      >
+      <div class={paneClass(inThread())}>
         {props.children}
       </div>
       <Show when={paletteOpen()}>

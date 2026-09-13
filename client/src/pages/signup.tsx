@@ -2,6 +2,12 @@ import { A, useNavigate } from "@solidjs/router";
 import { createSignal, type JSX } from "solid-js";
 import { signup } from "../lib/auth-api.ts";
 
+const field = (form: FormData, name: string) =>
+  String(form.get(name) ?? "");
+
+const signupError = (status: number) =>
+  status === 409 ? "That username is taken." : "Could not create the account.";
+
 export const SignupPage = () => {
   const navigate = useNavigate();
   const [error, setError] = createSignal<string | null>(null);
@@ -15,17 +21,13 @@ export const SignupPage = () => {
     setPending(true);
     setError(null);
     const result = await signup({
-      username: String(form.get("username") ?? ""),
-      displayName: String(form.get("displayName") ?? ""),
-      password: String(form.get("password") ?? ""),
+      username: field(form, "username"),
+      displayName: field(form, "displayName"),
+      password: field(form, "password"),
     });
     setPending(false);
     if (!result.ok) {
-      setError(
-        result.status === 409
-          ? "That username is taken."
-          : "Could not create the account.",
-      );
+      setError(signupError(result.status));
       return;
     }
     navigate("/app", { replace: true });

@@ -28,6 +28,26 @@ import { RoomsService, type RoomView } from "./rooms.service.ts";
 
 const viewer = (request: Request): PublicProfile => request.user as PublicProfile;
 
+const throwByTag = (tag: unknown): never => {
+  if (tag === "NotAMember") {
+    throw new ForbiddenException();
+  }
+  if (tag === "UserNotFound") {
+    throw new NotFoundException("User not found");
+  }
+  if (tag === "CannotDmSelf") {
+    throw new BadRequestException("Cannot message yourself");
+  }
+  throw new InternalServerErrorException();
+};
+
+const throwRoomError = (error: unknown): never => {
+  if (typeof error === "object" && error && "_tag" in error) {
+    throwByTag(error._tag);
+  }
+  throw new InternalServerErrorException();
+};
+
 const unwrapRoom = async <E>(
   effect: Effect.Effect<RoomView, E | Error>,
 ): Promise<RoomView> => {
@@ -35,19 +55,7 @@ const unwrapRoom = async <E>(
   if (result._tag === "Right") {
     return result.right;
   }
-  const error = result.left;
-  if (typeof error === "object" && error && "_tag" in error) {
-    if (error._tag === "NotAMember") {
-      throw new ForbiddenException();
-    }
-    if (error._tag === "UserNotFound") {
-      throw new NotFoundException("User not found");
-    }
-    if (error._tag === "CannotDmSelf") {
-      throw new BadRequestException("Cannot message yourself");
-    }
-  }
-  throw new InternalServerErrorException();
+  return throwRoomError(result.left);
 };
 
 @Controller("rooms")
