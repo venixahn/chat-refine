@@ -115,6 +115,13 @@ If peers never leave “Connecting peers…”, STUN could not punch the NAT —
 
 Atomic commits, concise conventional messages (`feat:`, `fix:`, `test:`, `refactor:`). Push the feature branch after each green commit. Update this README in the same change when behavior or setup changes.
 
+## Wiki
+
+- In-repo docs: [`docs/Home.md`](docs/Home.md)
+- GitHub Project: [chat-refine wiki](https://github.com/users/venix523/projects/1)
+
+GitHub Wiki pages are not available on a private free-plan repo, so the wiki lives in `docs/` and on that project.
+
 ## Layout
 
 ```
@@ -122,6 +129,7 @@ client/   Solid + Vite UI
 server/   NestJS API and signaling WebSocket
 shared/   Zod schemas and pure helpers
 e2e/      Playwright
+docs/     project wiki
 data/     local JSON database (file gitignored)
 ```
 
