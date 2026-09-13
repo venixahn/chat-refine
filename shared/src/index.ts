@@ -2,7 +2,10 @@ export {
   AV_MESH_CAP,
   applyCallState,
   avPeerCount,
+  callPresenceSchema,
   canAddAvPeer,
+  mediaPeerIds,
+  shouldIgnoreOffer,
   type CallPresence,
 } from "./mesh.ts";
 export {

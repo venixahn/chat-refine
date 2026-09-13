@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { callPresenceSchema } from "./mesh.ts";
 
 export const signalingFrameSchema = z.discriminatedUnion("type", [
   z.object({
@@ -34,6 +35,13 @@ export const signalingFrameSchema = z.discriminatedUnion("type", [
     createdAt: z.string().min(1),
     clientMessageId: z.string().min(8),
   }),
+  z.object({
+    type: z.literal("call-state"),
+    conversationId: z.string().min(1),
+    inCall: z.boolean(),
+    audio: z.boolean(),
+    video: z.boolean(),
+  }),
 ]);
 
 export type SignalingFrame = z.infer<typeof signalingFrameSchema>;
@@ -51,6 +59,7 @@ export const signalingEventSchema = z.discriminatedUnion("type", [
     type: z.literal("joined"),
     conversationId: z.string().min(1),
     peers: z.array(signalingPeerSchema),
+    call: z.array(callPresenceSchema).optional().default([]),
   }),
   z.object({
     type: z.literal("peer-joined"),
@@ -82,7 +91,7 @@ export const signalingEventSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("error"),
-    code: z.enum(["forbidden", "bad-frame", "not-joined"]),
+    code: z.enum(["forbidden", "bad-frame", "not-joined", "call-full"]),
     message: z.string().min(1),
   }),
   z.object({
@@ -92,6 +101,14 @@ export const signalingEventSchema = z.discriminatedUnion("type", [
     preview: z.string().min(1).max(180),
     createdAt: z.string().min(1),
     clientMessageId: z.string().min(8),
+  }),
+  z.object({
+    type: z.literal("call-state"),
+    conversationId: z.string().min(1),
+    fromUserId: z.string().min(1),
+    inCall: z.boolean(),
+    audio: z.boolean(),
+    video: z.boolean(),
   }),
 ]);
 

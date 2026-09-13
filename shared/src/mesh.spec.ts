@@ -4,6 +4,8 @@ import {
   applyCallState,
   avPeerCount,
   canAddAvPeer,
+  mediaPeerIds,
+  shouldIgnoreOffer,
 } from "./mesh.ts";
 
 describe("A/V mesh cap", () => {
@@ -36,5 +38,24 @@ describe("applyCallState", () => {
     expect(applyCallState(muted, "ada", { inCall: false, audio: false, video: false })).toEqual(
       [],
     );
+  });
+});
+
+describe("mediaPeerIds", () => {
+  it("lists in-call peers except self", () => {
+    const roster = [
+      { userId: "ada", audio: true, video: true },
+      { userId: "bob", audio: true, video: false },
+    ];
+    expect(mediaPeerIds("ada", true, roster)).toEqual(["bob"]);
+    expect(mediaPeerIds("ada", false, roster)).toEqual([]);
+  });
+});
+
+describe("shouldIgnoreOffer", () => {
+  it("drops glare only for the impolite peer", () => {
+    expect(shouldIgnoreOffer(false, true)).toBe(true);
+    expect(shouldIgnoreOffer(true, true)).toBe(false);
+    expect(shouldIgnoreOffer(false, false)).toBe(false);
   });
 });
