@@ -21,22 +21,30 @@ export {
 export {
   loginSchema,
   signupSchema,
+  updateProfileSchema,
   type LoginInput,
   type SignupInput,
+  type UpdateProfileInput,
 } from "./auth.ts";
 export {
   upsertMessage,
   messageOrd,
+  previewOf,
   type ChatMessage,
+  type MessageAttachment,
 } from "./messages.ts";
 export {
+  attachmentInputSchema,
   createGroupSchema,
   dmPairKey,
   openDmSchema,
   peopleQuerySchema,
+  postMessageSchema,
+  type AttachmentInput,
   type CreateGroupInput,
   type OpenDmInput,
   type PeopleQuery,
+  type PostMessageInput,
 } from "./rooms.ts";
 export {
   p2pEventSchema,

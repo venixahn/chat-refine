@@ -23,7 +23,26 @@ export const peopleQuerySchema = z.object({
   q: z.string().max(32).optional(),
 });
 
+export const attachmentInputSchema = z.object({
+  name: z.string().min(1).max(180),
+  mime: z.string().min(3).max(80),
+  data: z.string().min(8).max(1_400_000),
+});
+
+export const postMessageSchema = z
+  .object({
+    clientMessageId: z.string().min(8).max(80),
+    body: z.string().max(4000).default(""),
+    createdAt: z.string().min(1).optional(),
+    attachment: attachmentInputSchema.optional(),
+  })
+  .refine((value) => value.body.trim().length > 0 || Boolean(value.attachment), {
+    message: "Message needs text or a file",
+  });
+
 export type CreateGroupInput = z.infer<typeof createGroupSchema>;
 export type OpenDmInput = z.infer<typeof openDmSchema>;
 export type PeopleQuery = z.infer<typeof peopleQuerySchema>;
+export type PostMessageInput = z.infer<typeof postMessageSchema>;
+export type AttachmentInput = z.infer<typeof attachmentInputSchema>;
 

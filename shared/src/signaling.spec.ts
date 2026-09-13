@@ -15,6 +15,18 @@ describe("signalingFrameSchema", () => {
     ).toBe(true);
   });
 
+  it("accepts an activity frame", () => {
+    expect(
+      signalingFrameSchema.safeParse({
+        type: "activity",
+        conversationId: "room-general",
+        preview: "hello",
+        createdAt: "2026-09-13T12:00:00.000Z",
+        clientMessageId: "msg-ada-01",
+      }).success,
+    ).toBe(true);
+  });
+
   it("rejects an offer without sdp", () => {
     expect(
       signalingFrameSchema.safeParse({
@@ -51,13 +63,30 @@ describe("p2pEventSchema", () => {
     ).toBe(true);
   });
 
-  it("rejects an empty body", () => {
+  it("accepts a file-only message", () => {
     expect(
       p2pEventSchema.safeParse({
         type: "message",
         clientMessageId: "msg-ada-1",
         conversationId: "room-general",
         body: "",
+        createdAt: "2026-09-12T00:00:00.000Z",
+        attachment: {
+          name: "dot.png",
+          mime: "image/png",
+          size: 70,
+          data: "a".repeat(16),
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a message without an id", () => {
+    expect(
+      p2pEventSchema.safeParse({
+        type: "message",
+        conversationId: "room-general",
+        body: "hello",
         createdAt: "2026-09-12T00:00:00.000Z",
       }).success,
     ).toBe(false);

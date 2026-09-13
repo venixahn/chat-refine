@@ -1,6 +1,6 @@
 # chat-refine
 
-On-premises peer-to-peer chat: 1:1 and small-group **text, audio, and video**. You sign up on *this* server. Chat and media travel over **WebRTC** between browsers. NestJS does auth, rooms, and signaling only — it never relays message bodies or call media.
+On-premises peer-to-peer chat: 1:1 and small-group **text, audio, and video**. You sign up on *this* server. Live text and call media travel over **WebRTC** between browsers. NestJS does auth, rooms, signaling, and **persisted chat history** so inbox, unread, and other devices stay in sync. Call media never goes through Nest.
 
 ## Current status
 
@@ -10,12 +10,16 @@ Working today:
 - Room directory, group create/join, and 1:1 DMs
 - Authenticated signaling WebSocket (`GET /api/signal/ticket`, then `/ws`)
 - Authenticated ICE list (`GET /api/ice`) — Google STUN by default, or `ICE_SERVERS`
-- P2P text over WebRTC data channels, kept in local history
+- P2P text over WebRTC data channels, plus server-stored history (and local cache)
+- Unread counts and last-message previews in the room list
+- Small file / image sharing (about 1 MB; stored on this server)
+- Desktop notifications when a peer messages you (opt-in)
+- Edit display name and avatar
 - Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
 - 1:1 and small-group audio/video on the same mesh (join/leave, mute, camera)
 - Landing, auth pages, and `/app` / `/app/c/:id`
 - Stacked mobile layout (rooms list, then thread with a Rooms back link)
-- Unit, API, coverage, and Playwright auth, chat, call, and mobile e2e
+- Unit, API, coverage, and Playwright auth, chat, call, inbox, and mobile e2e
 
 A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. Peers across the internet use public Google STUN by default. Set `ICE_SERVERS=[]` for LAN-only host candidates, or add your own TURN for hard NAT.
 
@@ -28,12 +32,12 @@ A/V mesh cap is **6 peers** (`AV_MESH_CAP`). Text-only rooms can be larger. Peer
 | Data | lowdb JSON (`data/db.json`, gitignored) |
 | Validation | Zod |
 | Auth | Passport Local + `express-session` |
-| Transport | WebRTC data-channel + media mesh; Nest WebSocket for SDP/ICE only |
+| Transport | WebRTC data-channel + media mesh; Nest stores history and signals SDP/ICE |
 | FP / reactive | fp-ts (pure), Effect (IO), RxJS (streams), Solid signals (view) |
 | Tests | Vitest, Supertest, Playwright, V8 coverage |
 | Quality | ESLint, Husky (`pre-commit` tests, `pre-push` e2e) |
 
-No OAuth. Default ICE uses Google’s public STUN (`stun.l.google.com` and stun1–4). Chat and call media still go peer-to-peer, not through Nest. Optional: your own TURN / coturn via `ICE_SERVERS`.
+No OAuth. Default ICE uses Google’s public STUN (`stun.l.google.com` and stun1–4). Live chat and call media still go peer-to-peer. Message bodies and small files are also written to `data/db.json` so history, unread, and other devices stay in sync. Optional: your own TURN / coturn via `ICE_SERVERS`.
 
 ## Requirements
 
@@ -62,7 +66,7 @@ npm run dev
 - Client: [http://127.0.0.1:5173](http://127.0.0.1:5173) (also on your LAN IP)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Chat bodies and call media never hit the API — only join/SDP/ICE do. Join a call from the conversation header.
+Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Call media never hits the API — only join/SDP/ICE do. Join a call from the conversation header. Click your name to edit display name or avatar. Use **Notify** if you want desktop alerts while another tab is focused.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 
@@ -70,7 +74,7 @@ Production shape (later): `npm run build`, then Nest serves `client/dist` plus `
 
 ```bash
 npm test          # Vitest + V8 coverage (shared + server)
-npm run test:e2e  # Playwright (auth, two-peer text, two-peer call, mobile)
+npm run test:e2e  # Playwright (auth, chat, call, inbox, mobile)
 npm run lint      # ESLint
 ```
 

@@ -4,13 +4,18 @@ import { Effect } from "effect";
 import { filter, findFirst, map } from "fp-ts/Array";
 import { isNone, isSome } from "fp-ts/Option";
 import { pipe } from "fp-ts/function";
-import { dmPairKey, type CreateGroupInput } from "@chat-refine/shared";
+import {
+  dmPairKey,
+  type ChatMessage,
+  type CreateGroupInput,
+} from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
 import {
   toPublicProfile,
   type Conversation,
   type DbSchema,
   type PublicProfile,
+  type StoredMessage,
 } from "../db/schema.ts";
 import { CannotDmSelf, NotAMember, UserNotFound } from "./rooms.errors.ts";
 
@@ -22,6 +27,8 @@ export type RoomView = {
   title: string;
   createdAt: string;
   members: PublicProfile[];
+  lastMessage?: ChatMessage;
+  unreadCount: number;
 };
 
 export type DirectoryRoom = RoomView & { joined: boolean };
@@ -69,12 +76,70 @@ const roomTitle = (
   return firstText(peer?.displayName, peer?.username, room.name);
 };
 
+export const toPublicMessage = (stored: StoredMessage): ChatMessage => ({
+  clientMessageId: stored.clientMessageId,
+  conversationId: stored.conversationId,
+  fromUserId: stored.fromUserId,
+  body: stored.body,
+  createdAt: stored.createdAt,
+  attachment: stored.attachment
+    ? {
+        name: stored.attachment.name,
+        mime: stored.attachment.mime,
+        size: stored.attachment.size,
+      }
+    : undefined,
+});
+
+const lastStored = (
+  conversationId: string,
+  data: DbSchema,
+): StoredMessage | undefined =>
+  data.messages
+    .filter((item) => item.conversationId === conversationId)
+    .reduce<StoredMessage | undefined>((latest, item) => {
+      if (!latest) {
+        return item;
+      }
+      if (item.createdAt > latest.createdAt) {
+        return item;
+      }
+      if (item.createdAt < latest.createdAt) {
+        return latest;
+      }
+      return item.clientMessageId > latest.clientMessageId ? item : latest;
+    }, undefined);
+
+const readSince = (
+  userId: string,
+  conversationId: string,
+  data: DbSchema,
+): string =>
+  data.readCursors.find(
+    (item) => item.userId === userId && item.conversationId === conversationId,
+  )?.lastReadAt ?? "";
+
+const unreadCountOf = (
+  conversationId: string,
+  userId: string,
+  data: DbSchema,
+): number => {
+  const since = readSince(userId, conversationId, data);
+  return data.messages.filter(
+    (item) =>
+      item.conversationId === conversationId &&
+      item.fromUserId !== userId &&
+      item.createdAt > since,
+  ).length;
+};
+
 const toRoomView = (
   room: Conversation,
   viewerId: string,
   data: DbSchema,
 ): RoomView => {
   const members = membersOf(room, data);
+  const last = lastStored(room.id, data);
   return {
     id: room.id,
     kind: room.kind,
@@ -83,7 +148,17 @@ const toRoomView = (
     title: roomTitle(room, members, viewerId),
     createdAt: room.createdAt,
     members,
+    lastMessage: last ? toPublicMessage(last) : undefined,
+    unreadCount: unreadCountOf(room.id, viewerId, data),
   };
+};
+
+const activityAt = (room: RoomView): string =>
+  room.lastMessage?.createdAt ?? room.createdAt;
+
+const byActivityDesc = (left: RoomView, right: RoomView): number => {
+  const byTime = activityAt(right).localeCompare(activityAt(left));
+  return byTime !== 0 ? byTime : right.id.localeCompare(left.id);
 };
 
 @Injectable()
@@ -111,7 +186,7 @@ export class RoomsService {
       ),
       filter(isSome),
       map((option) => toRoomView(option.value, userId, data)),
-    );
+    ).sort(byActivityDesc);
   }
 
   listDirectory(userId: string): DirectoryRoom[] {

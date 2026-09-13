@@ -70,7 +70,11 @@ export class SignalingGateway
     }
     const joined = new Set<string>();
     const subscription = this.hub
-      .forSession(profile.id, () => joined)
+      .forSession(
+        profile.id,
+        () => joined,
+        (conversationId) => this.rooms.isMember(profile.id, conversationId),
+      )
       .subscribe((envelope) => {
         send(client, envelope.event);
       });
@@ -148,7 +152,38 @@ export class SignalingGateway
       });
       return;
     }
+    if (frame.type === "activity") {
+      this.onActivity(client, session, frame);
+      return;
+    }
     this.onRelay(client, session, frame);
+  }
+
+  private onActivity(
+    client: WebSocket,
+    session: Session,
+    frame: Extract<SignalingFrame, { type: "activity" }>,
+  ): void {
+    if (!this.rooms.isMember(session.profile.id, frame.conversationId)) {
+      send(client, {
+        type: "error",
+        code: "forbidden",
+        message: "Not a member of this room",
+      });
+      return;
+    }
+    this.hub.publish({
+      conversationId: frame.conversationId,
+      exceptUserId: session.profile.id,
+      event: {
+        type: "activity",
+        conversationId: frame.conversationId,
+        fromUserId: session.profile.id,
+        preview: frame.preview,
+        createdAt: frame.createdAt,
+        clientMessageId: frame.clientMessageId,
+      },
+    });
   }
 
   private onJoin(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { upsertMessage, type ChatMessage } from "./messages.ts";
+import { previewOf, upsertMessage, type ChatMessage } from "./messages.ts";
 
 const line = (id: string, createdAt: string, body = "hi"): ChatMessage => ({
   clientMessageId: id,
@@ -7,6 +7,20 @@ const line = (id: string, createdAt: string, body = "hi"): ChatMessage => ({
   body,
   createdAt,
   fromUserId: "user-1",
+});
+
+describe("previewOf", () => {
+  it("prefers the body, then the file name", () => {
+    expect(previewOf(line("msg-aaaa", "2026-09-12T00:00:01.000Z", "hello"))).toBe(
+      "hello",
+    );
+    expect(
+      previewOf({
+        ...line("msg-bbbb", "2026-09-12T00:00:01.000Z", "  "),
+        attachment: { name: "notes.pdf", mime: "application/pdf", size: 12 },
+      }),
+    ).toBe("notes.pdf");
+  });
 });
 
 describe("upsertMessage", () => {

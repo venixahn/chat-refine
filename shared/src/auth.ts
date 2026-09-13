@@ -15,5 +15,21 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(128),
 });
 
+export const updateProfileSchema = z
+  .object({
+    displayName: z.string().min(1).max(64).optional(),
+    avatarUrl: z
+      .string()
+      .max(120_000)
+      .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/)
+      .nullable()
+      .optional(),
+  })
+  .refine(
+    (value) => value.displayName !== undefined || value.avatarUrl !== undefined,
+    { message: "Nothing to update" },
+  );
+
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

@@ -40,6 +40,8 @@ describe("GET /api/ice", () => {
     await db.update((data) => {
       data.profiles.length = 0;
       data.conversationMembers.length = 0;
+      data.messages.length = 0;
+      data.readCursors.length = 0;
     });
   });
 

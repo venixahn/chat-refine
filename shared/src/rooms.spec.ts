@@ -4,6 +4,7 @@ import {
   dmPairKey,
   openDmSchema,
   peopleQuerySchema,
+  postMessageSchema,
 } from "./rooms.ts";
 
 describe("dmPairKey", () => {
@@ -30,6 +31,34 @@ describe("openDmSchema", () => {
   it("requires a username", () => {
     expect(openDmSchema.safeParse({ username: "ada" }).success).toBe(true);
     expect(openDmSchema.safeParse({ username: "ab" }).success).toBe(false);
+  });
+});
+
+describe("postMessageSchema", () => {
+  it("accepts text or a file", () => {
+    expect(
+      postMessageSchema.safeParse({
+        clientMessageId: "msg-ada-01",
+        body: "hello",
+      }).success,
+    ).toBe(true);
+    expect(
+      postMessageSchema.safeParse({
+        clientMessageId: "msg-ada-02",
+        body: "",
+        attachment: {
+          name: "dot.png",
+          mime: "image/png",
+          data: "a".repeat(16),
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      postMessageSchema.safeParse({
+        clientMessageId: "msg-ada-03",
+        body: "   ",
+      }).success,
+    ).toBe(false);
   });
 });
 

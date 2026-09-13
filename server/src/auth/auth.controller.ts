@@ -6,13 +6,19 @@ import {
   HttpCode,
   Inject,
   InternalServerErrorException,
+  Patch,
   Post,
   Req,
   UseGuards,
 } from "@nestjs/common";
 import { Effect } from "effect";
 import type { Request } from "express";
-import { signupSchema, type SignupInput } from "@chat-refine/shared";
+import {
+  signupSchema,
+  updateProfileSchema,
+  type SignupInput,
+  type UpdateProfileInput,
+} from "@chat-refine/shared";
 import type { PublicProfile } from "../db/schema.ts";
 import { ZodValidationPipe } from "../http/zod-validation.pipe.ts";
 import { AuthService } from "./auth.service.ts";
@@ -61,6 +67,22 @@ export class AuthController {
   @Get("me")
   me(@Req() request: Request): PublicProfile {
     return request.user as PublicProfile;
+  }
+
+  @UseGuards(SessionAuthGuard)
+  @Patch("me")
+  async updateMe(
+    @Req() request: Request,
+    @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileInput,
+  ): Promise<PublicProfile> {
+    const user = request.user as PublicProfile;
+    const result = await Effect.runPromise(
+      Effect.either(this.auth.updateProfile(user.id, body)),
+    );
+    if (result._tag === "Left") {
+      throw new InternalServerErrorException();
+    }
+    return result.right;
   }
 
   @HttpCode(200)

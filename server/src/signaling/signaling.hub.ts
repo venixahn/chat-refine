@@ -18,11 +18,33 @@ export class SignalingHub {
     this.frames$.next(envelope);
   }
 
-  forSession(userId: string, joined: () => ReadonlySet<string>) {
+  forSession(
+    userId: string,
+    joined: () => ReadonlySet<string>,
+    inbox: (conversationId: string) => boolean = () => false,
+  ) {
     return this.frames$.pipe(
-      filter((envelope) => joined().has(envelope.conversationId)),
-      filter((envelope) => !envelope.toUserId || envelope.toUserId === userId),
-      filter((envelope) => envelope.exceptUserId !== userId),
+      filter((envelope) =>
+        this.visibleTo(envelope, userId, joined, inbox),
+      ),
     );
+  }
+
+  private visibleTo(
+    envelope: HubEnvelope,
+    userId: string,
+    joined: () => ReadonlySet<string>,
+    inbox: (conversationId: string) => boolean,
+  ): boolean {
+    if (envelope.toUserId && envelope.toUserId !== userId) {
+      return false;
+    }
+    if (envelope.exceptUserId === userId) {
+      return false;
+    }
+    if (envelope.event.type === "activity") {
+      return inbox(envelope.conversationId);
+    }
+    return joined().has(envelope.conversationId);
   }
 }
