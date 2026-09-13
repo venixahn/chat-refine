@@ -38,13 +38,17 @@ test("sidebar shows last message, unread, and server history", async ({
   const body = `inbox-${Date.now()}`;
   await ada.getByRole("textbox", { name: "Message", exact: true }).fill(body);
   await ada.getByRole("button", { name: "Send" }).click();
-  await expect(ada.getByText(body)).toBeVisible();
+  await expect(ada.getByRole("main").getByText(body)).toBeVisible();
 
-  await expect(bob.getByText(body)).toBeVisible({ timeout: 15_000 });
-  await expect(bob.getByText("1", { exact: true })).toBeVisible();
+  await expect(bob.getByRole("link", { name: new RegExp(body) })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(bob.getByRole("link", { name: /general/ }).getByText("1")).toBeVisible();
 
   await bob.getByRole("link", { name: /general/ }).click();
-  await expect(bob.getByText(body)).toBeVisible({ timeout: 15_000 });
+  await expect(bob.getByRole("main").getByText(body)).toBeVisible({
+    timeout: 15_000,
+  });
 
   await adaContext.close();
   await bobContext.close();
@@ -77,10 +81,10 @@ test("a file sent while alone is visible later", async ({ browser }) => {
     buffer: Buffer.from("shared-note"),
   });
   await ada.getByRole("button", { name: "Send" }).click();
-  await expect(ada.getByRole("link", { name: "note.txt" })).toBeVisible();
+  await expect(ada.getByRole("main").getByRole("link", { name: "note.txt" })).toBeVisible();
 
   await bob.getByRole("link", { name: /general/ }).click();
-  await expect(bob.getByRole("link", { name: "note.txt" })).toBeVisible({
+  await expect(bob.getByRole("main").getByRole("link", { name: "note.txt" })).toBeVisible({
     timeout: 15_000,
   });
 
