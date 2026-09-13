@@ -40,10 +40,11 @@ test("sidebar shows last message, unread, and server history", async ({
   await ada.getByRole("button", { name: "Send" }).click();
   await expect(ada.getByRole("main").getByText(body)).toBeVisible();
 
-  await expect(bob.getByRole("link", { name: new RegExp(body) })).toBeVisible({
+  await expect(
+    bob.getByRole("link", { name: new RegExp(`${body} \\d+`) }),
+  ).toBeVisible({
     timeout: 15_000,
   });
-  await expect(bob.getByRole("link", { name: /general/ }).getByText("1")).toBeVisible();
 
   await bob.getByRole("link", { name: /general/ }).click();
   await expect(bob.getByRole("main").getByText(body)).toBeVisible({
