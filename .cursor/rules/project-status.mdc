@@ -12,5 +12,6 @@ After every material change (feature, fix, docs, merge, or status-affecting deci
 - Snapshot SHA, coverage, e2e, caps, and shipped vs open must match reality.
 - Mark completed todos and add new work to the list.
 - Architecture and UX diagrams must match what actually ships.
+- Keep `docs/Project-status.md` in sync with the canvas (that file is the in-repo export).
 - Link the canvas in the chat reply.
 - Read the Canvas skill before editing that `.canvas.tsx` file.
