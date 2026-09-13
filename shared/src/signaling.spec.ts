@@ -15,6 +15,18 @@ describe("signalingFrameSchema", () => {
     ).toBe(true);
   });
 
+  it("accepts a call-state frame", () => {
+    expect(
+      signalingFrameSchema.safeParse({
+        type: "call-state",
+        conversationId: "room-general",
+        inCall: true,
+        audio: true,
+        video: false,
+      }).success,
+    ).toBe(true);
+  });
+
   it("accepts an activity frame", () => {
     expect(
       signalingFrameSchema.safeParse({
@@ -95,13 +107,28 @@ describe("p2pEventSchema", () => {
 
 describe("signalingEventSchema", () => {
   it("accepts a joined roster", () => {
+    const parsed = signalingEventSchema.safeParse({
+      type: "joined",
+      conversationId: "room-general",
+      peers: [
+        { userId: "u1", username: "ada", displayName: "Ada" },
+      ],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === "joined") {
+      expect(parsed.data.call).toEqual([]);
+    }
+  });
+
+  it("accepts a call-state event", () => {
     expect(
       signalingEventSchema.safeParse({
-        type: "joined",
+        type: "call-state",
         conversationId: "room-general",
-        peers: [
-          { userId: "u1", username: "ada", displayName: "Ada" },
-        ],
+        fromUserId: "ada",
+        inCall: true,
+        audio: true,
+        video: true,
       }).success,
     ).toBe(true);
   });

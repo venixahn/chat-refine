@@ -263,4 +263,49 @@ describe("signaling API", () => {
     adaSocket.close();
     bobSocket.close();
   });
+
+  it("relays call-state and requires a joined session", async () => {
+    const adaAgent = request.agent(app.getHttpServer());
+    const bobAgent = request.agent(app.getHttpServer());
+    const adaProfile = await adaAgent.post("/api/auth/signup").send(ada);
+    await bobAgent.post("/api/auth/signup").send(bob);
+    const adaTicket = await adaAgent.get("/api/signal/ticket");
+    const bobTicket = await bobAgent.get("/api/signal/ticket");
+    const adaSocket = await openSocket(port, adaTicket.body.ticket);
+    const bobSocket = await openSocket(port, bobTicket.body.ticket);
+
+    adaSocket.send(JSON.stringify({ type: "join", conversationId: "room-general" }));
+    expect((await nextEvent(adaSocket, (event) => event.type === "joined")).call).toEqual(
+      [],
+    );
+    bobSocket.send(JSON.stringify({ type: "join", conversationId: "room-general" }));
+    await nextEvent(bobSocket, (event) => event.type === "joined");
+    await nextEvent(adaSocket, (event) => event.type === "peer-joined");
+
+    const bobSawCall = nextEvent(bobSocket, (event) => event.type === "call-state");
+    adaSocket.send(
+      JSON.stringify({
+        type: "call-state",
+        conversationId: "room-general",
+        inCall: true,
+        audio: true,
+        video: false,
+      }),
+    );
+    expect(await bobSawCall).toMatchObject({
+      type: "call-state",
+      fromUserId: adaProfile.body.id,
+      inCall: true,
+      audio: true,
+    });
+
+    const late = nextEvent(adaSocket, (event) => event.type === "error");
+    adaSocket.send(JSON.stringify({ type: "leave", conversationId: "room-general" }));
+    await nextEvent(bobSocket, (event) => event.type === "peer-left");
+    adaSocket.send(JSON.stringify({ type: "call-state", conversationId: "room-general", inCall: true, audio: true, video: false }));
+    expect(await late).toMatchObject({ code: "not-joined" });
+
+    adaSocket.close();
+    bobSocket.close();
+  });
 });

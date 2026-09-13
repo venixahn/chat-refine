@@ -16,7 +16,7 @@ Working today:
 - Desktop notifications when a peer messages you (opt-in)
 - Edit display name and avatar
 - Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
-- 1:1 and small-group audio/video on the same mesh (join/leave, mute, camera)
+- 1:1 and small-group audio/video mesh (join/leave, mute, camera; media only among in-call peers)
 - Landing, auth pages, and `/app` / `/app/c/:id`
 - Stacked mobile layout (rooms list, then thread with a Rooms back link)
 - Unit, API, coverage, and Playwright auth, chat, call, inbox, and mobile e2e

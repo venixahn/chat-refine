@@ -8,9 +8,17 @@ import {
   createSignal,
   onCleanup,
 } from "solid-js";
-import type { CallPresence, ChatMessage } from "@chat-refine/shared";
+import {
+  canAddAvPeer,
+  type CallPresence,
+  type ChatMessage,
+} from "@chat-refine/shared";
+import {
+  CallStage,
+  callCountLabel,
+  joinCallLabel,
+} from "../components/call-stage.tsx";
 import { Markdown } from "../components/markdown.tsx";
-import { MediaTile } from "../components/media-tile.tsx";
 import { me } from "../lib/auth-api.ts";
 import {
   startChatSession,
@@ -68,7 +76,10 @@ export const ConversationPage = () => {
   });
 
   const inCall = () => localStream() !== null;
-  const showStage = () => inCall() || callRoster().length > 0 || remoteStreams().length > 0;
+  const othersInCall = () =>
+    callRoster().filter((item) => item.userId !== profile()?.id);
+  const callFull = () => !inCall() && !canAddAvPeer(othersInCall().length);
+  const showStage = () => inCall() || othersInCall().length > 0;
 
   createEffect(() => {
     const conversationId = params.id;
@@ -140,7 +151,12 @@ export const ConversationPage = () => {
             Rooms
           </A>
           <h2 class="text-xl font-semibold">{room()?.title ?? "Conversation"}</h2>
-          <p class="text-sm text-[var(--muted)]">{status()}</p>
+          <p class="text-sm text-[var(--muted)]">
+            {status()}
+            <Show when={callCountLabel(inCall(), othersInCall().length)}>
+              {(label) => ` · ${label()}`}
+            </Show>
+          </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <Show
@@ -148,10 +164,14 @@ export const ConversationPage = () => {
             fallback={
               <button
                 type="button"
-                class="rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--bg)]"
-                onClick={() => void session()?.joinCall()}
+                class="rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--bg)] disabled:opacity-50"
+                disabled={callFull()}
+                onClick={() => {
+                  setMuted(false);
+                  void session()?.joinCall();
+                }}
               >
-                Join call
+                {joinCallLabel(callFull())}
               </button>
             }
           >
@@ -197,19 +217,13 @@ export const ConversationPage = () => {
         <p class="px-6 py-2 text-sm text-red-300">{callError()}</p>
       </Show>
       <Show when={showStage()}>
-        <section class="grid grid-cols-1 gap-3 border-b border-[var(--line)] px-6 py-4 md:grid-cols-2">
-          <Show when={localStream()}>
-            {(stream) => <MediaTile label="You" stream={stream()} muted />}
-          </Show>
-          <For each={remoteStreams()}>
-            {(item) => (
-              <MediaTile
-                label={authors().get(item.userId) ?? "Peer"}
-                stream={item.stream}
-              />
-            )}
-          </For>
-        </section>
+        <CallStage
+          selfId={profile()?.id}
+          localStream={localStream()}
+          remoteStreams={remoteStreams()}
+          roster={callRoster()}
+          names={authors()}
+        />
       </Show>
       <Show when={roomError()}>
         <p class="px-6 py-4 text-red-300">{roomError()}</p>

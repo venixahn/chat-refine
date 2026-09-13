@@ -6,6 +6,7 @@ import {
 } from "@nestjs/websockets";
 import type { IncomingMessage } from "node:http";
 import {
+  AV_MESH_CAP,
   signalingFrameSchema,
   type SignalingFrame,
   type SignalingPeer,
@@ -15,6 +16,7 @@ import type { WebSocket } from "ws";
 import { AuthService } from "../auth/auth.service.ts";
 import type { PublicProfile } from "../db/schema.ts";
 import { RoomsService } from "../rooms/rooms.service.ts";
+import { CallRosterService } from "./call-roster.service.ts";
 import { SignalTicketService } from "./signal-ticket.service.ts";
 import { SignalingHub } from "./signaling.hub.ts";
 
@@ -55,6 +57,7 @@ export class SignalingGateway
     @Inject(SignalingHub) private readonly hub: SignalingHub,
     @Inject(RoomsService) private readonly rooms: RoomsService,
     @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(CallRosterService) private readonly calls: CallRosterService,
   ) {}
 
   handleConnection(client: WebSocket, request: IncomingMessage): void {
@@ -90,16 +93,8 @@ export class SignalingGateway
       return;
     }
     session.subscription.unsubscribe();
-    for (const conversationId of session.joined) {
-      this.hub.publish({
-        conversationId,
-        exceptUserId: session.profile.id,
-        event: {
-          type: "peer-left",
-          conversationId,
-          userId: session.profile.id,
-        },
-      });
+    for (const conversationId of [...session.joined]) {
+      this.leaveRoom(session, conversationId);
     }
     this.sessions.delete(client);
   }
@@ -140,23 +135,50 @@ export class SignalingGateway
       return;
     }
     if (frame.type === "leave") {
-      session.joined.delete(frame.conversationId);
-      this.hub.publish({
-        conversationId: frame.conversationId,
-        exceptUserId: session.profile.id,
-        event: {
-          type: "peer-left",
-          conversationId: frame.conversationId,
-          userId: session.profile.id,
-        },
-      });
+      this.leaveRoom(session, frame.conversationId);
       return;
     }
     if (frame.type === "activity") {
       this.onActivity(client, session, frame);
       return;
     }
+    if (frame.type === "call-state") {
+      this.onCallState(client, session, frame);
+      return;
+    }
     this.onRelay(client, session, frame);
+  }
+
+  private leaveRoom(session: Session, conversationId: string): void {
+    session.joined.delete(conversationId);
+    this.publishCallDrop(session.profile.id, conversationId);
+    this.hub.publish({
+      conversationId,
+      exceptUserId: session.profile.id,
+      event: {
+        type: "peer-left",
+        conversationId,
+        userId: session.profile.id,
+      },
+    });
+  }
+
+  private publishCallDrop(userId: string, conversationId: string): void {
+    const updates = this.calls.dropUser(userId, [conversationId]);
+    for (const update of updates) {
+      this.hub.publish({
+        conversationId: update.conversationId,
+        exceptUserId: userId,
+        event: {
+          type: "call-state",
+          conversationId: update.conversationId,
+          fromUserId: userId,
+          inCall: false,
+          audio: false,
+          video: false,
+        },
+      });
+    }
   }
 
   private onActivity(
@@ -205,7 +227,12 @@ export class SignalingGateway
         (other) => other !== session && other.joined.has(conversationId),
       )
       .map((other) => toPeer(other.profile));
-    send(client, { type: "joined", conversationId, peers });
+    send(client, {
+      type: "joined",
+      conversationId,
+      peers,
+      call: this.calls.snapshot(conversationId),
+    });
     this.hub.publish({
       conversationId,
       exceptUserId: session.profile.id,
@@ -213,6 +240,65 @@ export class SignalingGateway
         type: "peer-joined",
         conversationId,
         peer: toPeer(session.profile),
+      },
+    });
+  }
+
+  private onCallState(
+    client: WebSocket,
+    session: Session,
+    frame: Extract<SignalingFrame, { type: "call-state" }>,
+  ): void {
+    if (!session.joined.has(frame.conversationId)) {
+      send(client, {
+        type: "error",
+        code: "not-joined",
+        message: "Join the room before signaling",
+      });
+      return;
+    }
+    if (!this.rooms.isMember(session.profile.id, frame.conversationId)) {
+      send(client, {
+        type: "error",
+        code: "forbidden",
+        message: "Not a member of this room",
+      });
+      return;
+    }
+    this.commitCallState(client, session, frame);
+  }
+
+  private commitCallState(
+    client: WebSocket,
+    session: Session,
+    frame: Extract<SignalingFrame, { type: "call-state" }>,
+  ): void {
+    const result = this.calls.apply(frame.conversationId, session.profile.id, {
+      inCall: frame.inCall,
+      audio: frame.audio,
+      video: frame.video,
+    });
+    if (!result.ok) {
+      send(client, {
+        type: "error",
+        code: "call-full",
+        message: `Call is full (${AV_MESH_CAP} peers)`,
+      });
+      return;
+    }
+    if (!result.changed) {
+      return;
+    }
+    this.hub.publish({
+      conversationId: frame.conversationId,
+      exceptUserId: session.profile.id,
+      event: {
+        type: "call-state",
+        conversationId: frame.conversationId,
+        fromUserId: session.profile.id,
+        inCall: frame.inCall,
+        audio: frame.audio,
+        video: frame.video,
       },
     });
   }

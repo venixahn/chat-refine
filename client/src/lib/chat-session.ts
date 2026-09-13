@@ -3,6 +3,7 @@ import {
   avPeerCount,
   canAddAvPeer,
   iceConfigSchema,
+  mediaPeerIds,
   previewOf,
   type CallPresence,
   type ChatMessage,
@@ -180,8 +181,16 @@ export const startChatSession = async (input: {
       event.messages.forEach(apply);
       return;
     }
-    callRoster = applyCallState(callRoster, fromUserId, event);
+    applyRemoteCall(fromUserId, event);
+  };
+
+  const applyRemoteCall = (
+    userId: string,
+    state: { inCall: boolean; audio: boolean; video: boolean },
+  ) => {
+    callRoster = applyCallState(callRoster, userId, state);
     publishCall();
+    syncMedia();
   };
 
   const currentCallState = () => ({
@@ -210,9 +219,6 @@ export const startChatSession = async (input: {
       });
       if (inCall) {
         mesh.sendTo(userId, currentCallState());
-        if (localStream) {
-          void mesh.attachLocalStream(localStream).then(() => mesh.renegotiate(userId));
-        }
       }
     },
     onRemoteStream: (userId, stream) => {
@@ -238,11 +244,39 @@ export const startChatSession = async (input: {
     },
   });
 
+  const syncMedia = () => {
+    mesh.setMediaPeers(
+      mediaPeerIds(input.self.id, inCall, callRoster),
+      localStream,
+    );
+  };
+
+  const announceCall = () => {
+    const state = currentCallState();
+    signal.send(state);
+    mesh.broadcast(state);
+  };
+
+  const revertCall = async () => {
+    inCall = false;
+    callRoster = applyCallState(callRoster, input.self.id, {
+      inCall: false,
+      audio: false,
+      video: false,
+    });
+    publishCall();
+    await mesh.detachLocalStream();
+    stopLocal();
+  };
+
   const onJoined = (event: Extract<SignalingEvent, { type: "joined" }>) => {
     for (const peer of event.peers) {
       roster.set(peer.userId, peer);
     }
+    callRoster = event.call;
     publishPeers();
+    publishCall();
+    syncMedia();
     input.onStatus(
       event.peers.length === 0 ? "Waiting for peers" : "Connecting peers…",
     );
@@ -251,14 +285,9 @@ export const startChatSession = async (input: {
   const onPeerLeft = (userId: string) => {
     roster.delete(userId);
     typingUntil.delete(userId);
-    callRoster = applyCallState(callRoster, userId, {
-      inCall: false,
-      audio: false,
-      video: false,
-    });
+    applyRemoteCall(userId, { inCall: false, audio: false, video: false });
     mesh.drop(userId);
     publishPeers();
-    publishCall();
     refreshTyping();
   };
 
@@ -286,8 +315,15 @@ export const startChatSession = async (input: {
     ice: (event) => {
       void mesh.handleIce(event.fromUserId, event.candidate);
     },
+    "call-state": (event) => {
+      applyRemoteCall(event.fromUserId, event);
+    },
     error: (event) => {
       input.onStatus(event.message);
+      if (event.code === "call-full") {
+        void revertCall();
+        input.onCallError(event.message);
+      }
     },
   };
 
@@ -310,11 +346,8 @@ export const startChatSession = async (input: {
   const typingTimer = setInterval(refreshTyping, 800);
 
   const leaveCall = async () => {
-    inCall = false;
-    await mesh.detachLocalStream();
-    stopLocal();
-    await mesh.renegotiate();
-    mesh.broadcast(currentCallState());
+    await revertCall();
+    announceCall();
     input.onCallError(null);
   };
 
@@ -403,8 +436,9 @@ export const startChatSession = async (input: {
       if (inCall) {
         return;
       }
-      if (!canAddAvPeer(avPeerCount(callRoster))) {
-        input.onCallError(`Call is full (${avPeerCount(callRoster)} peers)`);
+      const others = callRoster.filter((item) => item.userId !== input.self.id);
+      if (!canAddAvPeer(avPeerCount(others))) {
+        input.onCallError(`Call is full (${avPeerCount(others)} peers)`);
         return;
       }
       input.onCallError(null);
@@ -415,10 +449,11 @@ export const startChatSession = async (input: {
         return;
       }
       inCall = true;
+      callRoster = applyCallState(callRoster, input.self.id, currentCallState());
+      publishCall();
       input.onLocalStream(localStream);
-      await mesh.attachLocalStream(localStream);
-      await mesh.renegotiate();
-      mesh.broadcast(currentCallState());
+      syncMedia();
+      announceCall();
     },
     leaveCall,
     setMuted: (muted) => {
@@ -426,7 +461,7 @@ export const startChatSession = async (input: {
         track.enabled = !muted;
       });
       if (inCall) {
-        mesh.broadcast(currentCallState());
+        announceCall();
       }
     },
     setCamera: async (on) => {
@@ -440,7 +475,7 @@ export const startChatSession = async (input: {
         return;
       }
       input.onLocalStream(localStream);
-      mesh.broadcast(currentCallState());
+      announceCall();
     },
     close: () => {
       clearInterval(typingTimer);

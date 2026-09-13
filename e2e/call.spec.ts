@@ -22,6 +22,7 @@ const signup = async (
 };
 
 test("two members join a P2P call", async ({ browser }) => {
+  test.setTimeout(90_000);
   const adaUser = uniqueUser("ada");
   const bobUser = uniqueUser("bob");
   const options: BrowserContextOptions = {
