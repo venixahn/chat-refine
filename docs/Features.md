@@ -15,3 +15,5 @@ Working on `develop`:
 - Stacked mobile layout
 
 A/V cap is `AV_MESH_CAP` (16). Each caller uploads once; Nest forwards to the others. Text-only rooms can be larger.
+
+Shipped vs open, coverage, and next work: [Project-status](Project-status.md).
