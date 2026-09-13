@@ -3,7 +3,6 @@ import {
   avPeerCount,
   canAddAvPeer,
   iceConfigSchema,
-  mediaPeerIds,
   previewOf,
   type CallPresence,
   type ChatMessage,
@@ -18,6 +17,7 @@ import type { PublicProfile } from "./auth-api.ts";
 import type { FilePayload } from "./file.ts";
 import { loadHistory, persistMessage } from "./local-history.ts";
 import { createMesh, stubPeer, type Mesh } from "./mesh.ts";
+import { createSfuLink } from "./sfu-link.ts";
 import { listIce, listMessages, markRead, postMessage, signalTicket } from "./rooms-api.ts";
 import { connectSignal } from "./signal-client.ts";
 
@@ -190,7 +190,6 @@ export const startChatSession = async (input: {
   ) => {
     callRoster = applyCallState(callRoster, userId, state);
     publishCall();
-    syncMedia();
   };
 
   const currentCallState = () => ({
@@ -244,12 +243,19 @@ export const startChatSession = async (input: {
     },
   });
 
-  const syncMedia = () => {
-    mesh.setMediaPeers(
-      mediaPeerIds(input.self.id, inCall, callRoster),
-      localStream,
-    );
-  };
+  const sfu = createSfuLink({
+    conversationId: input.conversationId,
+    iceServers,
+    send: signal.send,
+    onRemote: (userId, stream) => {
+      if (stream) {
+        remoteByUser.set(userId, stream);
+      } else {
+        remoteByUser.delete(userId);
+      }
+      publishRemote();
+    },
+  });
 
   const announceCall = () => {
     const state = currentCallState();
@@ -265,7 +271,7 @@ export const startChatSession = async (input: {
       video: false,
     });
     publishCall();
-    await mesh.detachLocalStream();
+    sfu.close();
     stopLocal();
   };
 
@@ -276,7 +282,6 @@ export const startChatSession = async (input: {
     callRoster = event.call;
     publishPeers();
     publishCall();
-    syncMedia();
     input.onStatus(
       event.peers.length === 0 ? "Waiting for peers" : "Connecting peers…",
     );
@@ -317,6 +322,18 @@ export const startChatSession = async (input: {
     },
     "call-state": (event) => {
       applyRemoteCall(event.fromUserId, event);
+    },
+    "sfu-offer": (event) => {
+      void sfu.handleOffer(event.sdp);
+    },
+    "sfu-answer": (event) => {
+      void sfu.handleAnswer(event.sdp);
+    },
+    "sfu-ice": (event) => {
+      void sfu.handleIce(event.candidate);
+    },
+    "sfu-route": (event) => {
+      sfu.handleRoute(event.fromUserId, event.mid);
     },
     error: (event) => {
       input.onStatus(event.message);
@@ -363,7 +380,7 @@ export const startChatSession = async (input: {
       return;
     }
     localStream.addTrack(video);
-    await mesh.replaceMediaTrack("video", video);
+    await sfu.replaceKind("video", video);
   };
 
   const stripVideoTracks = async () => {
@@ -374,7 +391,7 @@ export const startChatSession = async (input: {
       track.stop();
       localStream?.removeTrack(track);
     });
-    await mesh.replaceMediaTrack("video", null);
+    await sfu.replaceKind("video", null);
   };
 
   const applyCamera = async (on: boolean) => {
@@ -452,7 +469,7 @@ export const startChatSession = async (input: {
       callRoster = applyCallState(callRoster, input.self.id, currentCallState());
       publishCall();
       input.onLocalStream(localStream);
-      syncMedia();
+      sfu.attach(localStream);
       announceCall();
     },
     leaveCall,
@@ -483,7 +500,7 @@ export const startChatSession = async (input: {
       typing$.complete();
       subscription.unsubscribe();
       inCall = false;
-      void mesh.detachLocalStream();
+      sfu.close();
       stopLocal();
       signal.send({ type: "leave", conversationId: input.conversationId });
       mesh.close();

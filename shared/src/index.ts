@@ -6,6 +6,7 @@ export {
   canAddAvPeer,
   mediaPeerIds,
   shouldIgnoreOffer,
+  sfuSubscribers,
   type CallPresence,
 } from "./mesh.ts";
 export {
@@ -50,6 +51,7 @@ export {
   type PostMessageInput,
 } from "./rooms.ts";
 export {
+  isSfuFrame,
   p2pEventSchema,
   signalingEventSchema,
   signalingFrameSchema,

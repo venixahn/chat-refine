@@ -15,6 +15,16 @@ describe("signalingFrameSchema", () => {
     ).toBe(true);
   });
 
+  it("accepts an sfu-offer frame", () => {
+    expect(
+      signalingFrameSchema.safeParse({
+        type: "sfu-offer",
+        conversationId: "room-general",
+        sdp: "v=0",
+      }).success,
+    ).toBe(true);
+  });
+
   it("accepts a call-state frame", () => {
     expect(
       signalingFrameSchema.safeParse({
@@ -118,6 +128,18 @@ describe("signalingEventSchema", () => {
     if (parsed.success && parsed.data.type === "joined") {
       expect(parsed.data.call).toEqual([]);
     }
+  });
+
+  it("accepts an sfu-route event", () => {
+    expect(
+      signalingEventSchema.safeParse({
+        type: "sfu-route",
+        conversationId: "room-general",
+        fromUserId: "ada",
+        mid: "1",
+        kind: "video",
+      }).success,
+    ).toBe(true);
   });
 
   it("accepts a call-state event", () => {

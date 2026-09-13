@@ -42,9 +42,34 @@ export const signalingFrameSchema = z.discriminatedUnion("type", [
     audio: z.boolean(),
     video: z.boolean(),
   }),
+  z.object({
+    type: z.literal("sfu-offer"),
+    conversationId: z.string().min(1),
+    sdp: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("sfu-answer"),
+    conversationId: z.string().min(1),
+    sdp: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("sfu-ice"),
+    conversationId: z.string().min(1),
+    candidate: z.string().min(1),
+  }),
 ]);
 
 export type SignalingFrame = z.infer<typeof signalingFrameSchema>;
+
+export const isSfuFrame = (
+  frame: SignalingFrame,
+): frame is Extract<
+  SignalingFrame,
+  { type: "sfu-offer" | "sfu-answer" | "sfu-ice" }
+> =>
+  frame.type === "sfu-offer" ||
+  frame.type === "sfu-answer" ||
+  frame.type === "sfu-ice";
 
 export const signalingPeerSchema = z.object({
   userId: z.string().min(1),
@@ -109,6 +134,28 @@ export const signalingEventSchema = z.discriminatedUnion("type", [
     inCall: z.boolean(),
     audio: z.boolean(),
     video: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("sfu-offer"),
+    conversationId: z.string().min(1),
+    sdp: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("sfu-answer"),
+    conversationId: z.string().min(1),
+    sdp: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("sfu-ice"),
+    conversationId: z.string().min(1),
+    candidate: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("sfu-route"),
+    conversationId: z.string().min(1),
+    fromUserId: z.string().min(1),
+    mid: z.string().min(1),
+    kind: z.enum(["audio", "video"]),
   }),
 ]);
 

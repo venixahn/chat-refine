@@ -16,12 +16,12 @@ docs/     this wiki
 | Signup, rooms, profile | Yes |
 | Message history, unread, files | Yes (`data/db.json`) |
 | Live text (when a peer is connected) | Also WebRTC data channel |
-| Call audio / video | No — WebRTC media only, and only among peers in the call |
+| Call audio / video | Yes — Nest SFU forwards RTP; each caller uploads once |
 | SDP / ICE / call roster | Yes (`/ws`) |
 
 Sending a message POSTs it for history, then fans it out over the data channel when a peer is online. Inbox activity frames update unread and last-message without an open thread.
 
-A/V is a full mesh of WebRTC media tracks among people who clicked **Join call** (cap `AV_MESH_CAP`). Nest tracks that roster and rejects a seventh peer. Text data channels stay up for the whole room; camera and mic are not sent to members who have not joined the call.
+A/V uses a **selective forwarding unit** in Nest (`werift`). Each caller has one WebRTC connection to this server. Nest forwards that media to the other people in the call (cap `AV_MESH_CAP`, 16). Live text still uses a peer-to-peer data-channel mesh; camera and mic are not sent to members who have not joined the call.
 
 ## Stack
 
