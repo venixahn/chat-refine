@@ -30,7 +30,11 @@ export class SfuService {
     if (!room) {
       return;
     }
-    await room.leave(userId);
+    try {
+      await room.leave(userId);
+    } catch {
+      // A raced close must not take down Nest.
+    }
     if (room.empty()) {
       this.rooms.delete(conversationId);
     }

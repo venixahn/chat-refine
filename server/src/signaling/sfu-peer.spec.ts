@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { dropForwarded, midOfTrack } from "./sfu-peer.ts";
+import { dropForwarded, hasForwarded, midOfTrack } from "./sfu-peer.ts";
 
 describe("sfu peer helpers", () => {
   it("reads the mid for a forwarded track", () => {
@@ -8,6 +8,14 @@ describe("sfu peer helpers", () => {
       getTransceivers: () => [{ sender: { track }, mid: "0" }],
     } as never;
     expect(midOfTrack(pc, track as never)).toBe("0");
+  });
+
+  it("detects a sender already forwarding a track", () => {
+    const track = { kind: "audio" };
+    const pc = {
+      getSenders: () => [{ track }],
+    } as never;
+    expect(hasForwarded(pc, track as never)).toBe(true);
   });
 
   it("removes senders that forward the given tracks", () => {

@@ -62,6 +62,11 @@ export const midOfTrack = (
   pc.getTransceivers().find((item) => item.sender.track === track)?.mid ??
   undefined;
 
+export const hasForwarded = (
+  pc: RTCPeerConnection,
+  track: MediaStreamTrack,
+): boolean => pc.getSenders().some((sender) => sender.track === track);
+
 export const dropForwarded = (
   pc: RTCPeerConnection,
   tracks: readonly MediaStreamTrack[],
