@@ -4,12 +4,30 @@ import { sort } from "fp-ts/Array";
 import { isSome } from "fp-ts/Option";
 import { pipe } from "fp-ts/function";
 
+export type MessageAttachment = {
+  name: string;
+  mime: string;
+  size: number;
+};
+
 export type ChatMessage = {
   clientMessageId: string;
   conversationId: string;
   body: string;
   createdAt: string;
   fromUserId: string;
+  attachment?: MessageAttachment;
+};
+
+export const previewOf = (message: ChatMessage): string => {
+  const caption = message.body.trim();
+  if (caption) {
+    return caption;
+  }
+  if (message.attachment) {
+    return message.attachment.name;
+  }
+  return "Message";
 };
 
 export const messageOrd = fromCompare<ChatMessage>((left, right) => {

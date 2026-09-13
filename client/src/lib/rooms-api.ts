@@ -1,4 +1,4 @@
-import type { IceServer } from "@chat-refine/shared";
+import type { ChatMessage, IceServer, PostMessageInput } from "@chat-refine/shared";
 import { request, type PublicProfile } from "./auth-api.ts";
 
 export type RoomView = {
@@ -9,6 +9,8 @@ export type RoomView = {
   title: string;
   createdAt: string;
   members: PublicProfile[];
+  lastMessage?: ChatMessage;
+  unreadCount: number;
 };
 
 export type DirectoryRoom = RoomView & { joined: boolean };
@@ -43,3 +45,18 @@ export const signalTicket = () =>
   request<{ ticket: string; expiresAt: string }>("/api/signal/ticket");
 
 export const listIce = () => request<{ iceServers: IceServer[] }>("/api/ice");
+
+export const listMessages = (id: string) =>
+  request<ChatMessage[]>(`/api/rooms/${id}/messages`);
+
+export const postMessage = (id: string, body: PostMessageInput) =>
+  request<ChatMessage>(`/api/rooms/${id}/messages`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const markRead = (id: string) =>
+  request<{ ok: true }>(`/api/rooms/${id}/read`, { method: "POST" });
+
+export const messageFileUrl = (roomId: string, messageId: string) =>
+  `/api/rooms/${roomId}/messages/${messageId}/file`;

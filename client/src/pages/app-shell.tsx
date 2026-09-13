@@ -1,14 +1,23 @@
+import { previewOf } from "@chat-refine/shared";
 import { A, useLocation, useNavigate } from "@solidjs/router";
 import {
   For,
   Show,
+  createEffect,
   createResource,
   createSignal,
   onCleanup,
   onMount,
   type JSX,
 } from "solid-js";
-import { logout, me, type PublicProfile } from "../lib/auth-api.ts";
+import {
+  logout,
+  me,
+  updateProfile,
+  type PublicProfile,
+} from "../lib/auth-api.ts";
+import { readAvatarDataUrl } from "../lib/file.ts";
+import { startInbox } from "../lib/inbox.ts";
 import {
   createGroup,
   joinGroup,
@@ -37,6 +46,37 @@ const profileName = (profile: PublicProfile | null | undefined) =>
 const profileHandle = (profile: PublicProfile | null | undefined) =>
   profile?.username ?? "…";
 
+const notifyActivity = (preview: string, conversationId: string): void => {
+  const open = location.pathname === `/app/c/${conversationId}`;
+  if (open || !document.hidden || Notification.permission !== "granted") {
+    return;
+  }
+  new Notification("New message", { body: preview });
+};
+
+const RoomRow = (props: { room: RoomView }) => (
+  <A
+    href={`/app/c/${props.room.id}`}
+    class="flex items-start justify-between gap-2 rounded-lg px-3 py-2 text-sm hover:bg-[var(--bg)]"
+  >
+    <span class="min-w-0">
+      <span class="block truncate">{props.room.title}</span>
+      <Show when={props.room.lastMessage}>
+        {(message) => (
+          <span class="block truncate text-xs text-[var(--muted)]">
+            {previewOf(message())}
+          </span>
+        )}
+      </Show>
+    </span>
+    <Show when={props.room.unreadCount > 0}>
+      <span class="shrink-0 rounded-full bg-[var(--accent)] px-2 py-0.5 text-xs text-[var(--bg)]">
+        {props.room.unreadCount}
+      </span>
+    </Show>
+  </A>
+);
+
 export const AppShell = (props: { children?: JSX.Element }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,8 +87,14 @@ export const AppShell = (props: { children?: JSX.Element }) => {
   const [error, setError] = createSignal<string | null>(null);
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [paletteQuery, setPaletteQuery] = createSignal("");
+  const [editingProfile, setEditingProfile] = createSignal(false);
+  const [displayDraft, setDisplayDraft] = createSignal("");
+  const [profileError, setProfileError] = createSignal<string | null>(null);
+  const [notifyState, setNotifyState] = createSignal(
+    typeof Notification === "undefined" ? "denied" : Notification.permission,
+  );
 
-  const [profile] = createResource(async () => {
+  const [profile, { mutate }] = createResource(async () => {
     const result = await me();
     if (!result.ok) {
       navigate("/login", { replace: true });
@@ -73,6 +119,92 @@ export const AppShell = (props: { children?: JSX.Element }) => {
   });
 
   const refresh = () => setTick((value) => value + 1);
+
+  createEffect(() => {
+    const path = location.pathname;
+    if (path.length > 0) {
+      refresh();
+    }
+  });
+
+  onMount(() => {
+    const onActivity = () => refresh();
+    window.addEventListener("chat-refine:activity", onActivity);
+    onCleanup(() => window.removeEventListener("chat-refine:activity", onActivity));
+  });
+
+  createEffect(() => {
+    const selfId = profile()?.id;
+    if (!selfId) {
+      return;
+    }
+    let handle: { close: () => void } | undefined;
+    let cancelled = false;
+    void startInbox({
+      onActivity: (event) => {
+        refresh();
+        notifyActivity(event.preview, event.conversationId);
+      },
+    })
+      .then((started) => {
+        if (cancelled) {
+          started.close();
+          return;
+        }
+        handle = started;
+      })
+      .catch(() => undefined);
+    onCleanup(() => {
+      cancelled = true;
+      handle?.close();
+    });
+  });
+
+  const openProfile = () => {
+    setDisplayDraft(profile()?.displayName ?? "");
+    setProfileError(null);
+    setEditingProfile(true);
+  };
+
+  const saveProfile = async (avatarUrl?: string | null) => {
+    const trimmed = displayDraft().trim();
+    if (!trimmed) {
+      setProfileError("Display name is required.");
+      return;
+    }
+    const result = await updateProfile({
+      displayName: trimmed,
+      ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+    });
+    if (!result.ok) {
+      setProfileError("Could not update your profile.");
+      return;
+    }
+    mutate(result.data);
+    setEditingProfile(false);
+  };
+
+  const onAvatar = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    try {
+      const avatarUrl = await readAvatarDataUrl(file);
+      await saveProfile(avatarUrl);
+    } catch (error) {
+      setProfileError(
+        error instanceof Error ? error.message : "Could not read that image",
+      );
+    }
+  };
+
+  const enableNotify = async () => {
+    if (typeof Notification === "undefined") {
+      return;
+    }
+    const next = await Notification.requestPermission();
+    setNotifyState(next);
+  };
 
   const groups = () =>
     (rooms() ?? []).filter((room) => room.kind === "group");
@@ -178,12 +310,80 @@ export const AppShell = (props: { children?: JSX.Element }) => {
           <p class="text-xs tracking-[0.2em] text-[var(--accent)] uppercase">
             Signed in
           </p>
-          <h1 class="mt-2 text-2xl font-semibold">
-            {profileName(profile())}
-          </h1>
-          <p class="text-sm text-[var(--muted)]">
-            @{profileHandle(profile())}
-          </p>
+          <Show
+            when={editingProfile()}
+            fallback={
+              <button
+                type="button"
+                class="mt-2 text-left"
+                onClick={openProfile}
+              >
+                <Show when={profile()?.avatarUrl}>
+                  {(url) => (
+                    <img
+                      src={url()}
+                      alt=""
+                      class="mb-2 h-12 w-12 rounded-full object-cover"
+                    />
+                  )}
+                </Show>
+                <h1 class="text-2xl font-semibold">
+                  {profileName(profile())}
+                </h1>
+                <p class="text-sm text-[var(--muted)]">
+                  @{profileHandle(profile())}
+                </p>
+                <p class="mt-1 text-xs text-[var(--accent)]">Edit profile</p>
+              </button>
+            }
+          >
+            <form
+              class="mt-2 flex flex-col gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveProfile();
+              }}
+            >
+              <label class="text-xs tracking-[0.18em] text-[var(--muted)] uppercase">
+                Display name
+                <input
+                  value={displayDraft()}
+                  onInput={(event) => setDisplayDraft(event.currentTarget.value)}
+                  class="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm normal-case tracking-normal text-[var(--text)]"
+                />
+              </label>
+              <label class="text-xs text-[var(--muted)]">
+                Avatar
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  aria-label="Avatar"
+                  class="mt-2 block w-full text-sm normal-case"
+                  onChange={(event) => {
+                    void onAvatar(event.currentTarget.files?.[0]);
+                  }}
+                />
+              </label>
+              <Show when={profileError()}>
+                <p class="text-sm text-red-300">{profileError()}</p>
+              </Show>
+              <div class="flex gap-2">
+                <button
+                  type="submit"
+                  class="rounded-full bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)]"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  class="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm"
+                  onClick={() => setEditingProfile(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </Show>
         </div>
         <div class="flex-1 space-y-6 overflow-y-auto px-4 py-5">
           <section>
@@ -194,12 +394,7 @@ export const AppShell = (props: { children?: JSX.Element }) => {
               <For each={groups()}>
                 {(room) => (
                   <li>
-                    <A
-                      href={`/app/c/${room.id}`}
-                      class="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--bg)]"
-                    >
-                      {room.title}
-                    </A>
+                    <RoomRow room={room} />
                   </li>
                 )}
               </For>
@@ -213,12 +408,7 @@ export const AppShell = (props: { children?: JSX.Element }) => {
               <For each={dms()} fallback={<li class="px-3 text-sm text-[var(--muted)]">None yet</li>}>
                 {(room) => (
                   <li>
-                    <A
-                      href={`/app/c/${room.id}`}
-                      class="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--bg)]"
-                    >
-                      {room.title}
-                    </A>
+                    <RoomRow room={room} />
                   </li>
                 )}
               </For>
@@ -283,7 +473,7 @@ export const AppShell = (props: { children?: JSX.Element }) => {
             <p class="text-sm text-red-300">{error()}</p>
           </Show>
         </div>
-        <div class="flex items-center justify-between border-t border-[var(--line)] px-4 py-4">
+        <div class="flex items-center justify-between gap-2 border-t border-[var(--line)] px-4 py-4">
           <button
             type="button"
             class="text-sm text-[var(--muted)]"
@@ -291,6 +481,15 @@ export const AppShell = (props: { children?: JSX.Element }) => {
           >
             Jump · Ctrl+K
           </button>
+          <Show when={notifyState() === "default"}>
+            <button
+              type="button"
+              class="text-sm text-[var(--accent)]"
+              onClick={() => void enableNotify()}
+            >
+              Notify
+            </button>
+          </Show>
           <button
             type="button"
             onClick={() => void signOut()}

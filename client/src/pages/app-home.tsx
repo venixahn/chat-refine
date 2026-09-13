@@ -5,8 +5,8 @@ export const AppHomePage = () => (
     </p>
     <h2 class="text-3xl font-semibold">Pick a room</h2>
     <p class="max-w-md text-[var(--muted)]">
-      Text travels on WebRTC data channels between browsers. Nest only keeps
-      the room list and signaling.
+      History lives on this server so you can pick up a thread on another
+      device. Live text and calls still travel peer-to-peer.
     </p>
   </main>
 );

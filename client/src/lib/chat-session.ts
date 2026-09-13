@@ -3,8 +3,10 @@ import {
   avPeerCount,
   canAddAvPeer,
   iceConfigSchema,
+  previewOf,
   type CallPresence,
   type ChatMessage,
+  type MessageAttachment,
   type P2pEvent,
   type SignalingEvent,
   type SignalingPeer,
@@ -12,9 +14,10 @@ import {
 import { Subject } from "rxjs";
 import { debounceTime } from "rxjs/operators";
 import type { PublicProfile } from "./auth-api.ts";
+import type { FilePayload } from "./file.ts";
 import { loadHistory, persistMessage } from "./local-history.ts";
 import { createMesh, stubPeer, type Mesh } from "./mesh.ts";
-import { listIce, signalTicket } from "./rooms-api.ts";
+import { listIce, listMessages, markRead, postMessage, signalTicket } from "./rooms-api.ts";
 import { connectSignal } from "./signal-client.ts";
 
 export type RemoteMedia = {
@@ -22,8 +25,13 @@ export type RemoteMedia = {
   stream: MediaStream | null;
 };
 
+export type OutgoingMessage = {
+  body: string;
+  attachment?: FilePayload;
+};
+
 export type ChatSession = {
-  send: (body: string) => void;
+  send: (outgoing: OutgoingMessage) => Promise<void>;
   notifyTyping: () => void;
   joinCall: () => Promise<void>;
   leaveCall: () => Promise<void>;
@@ -31,6 +39,33 @@ export type ChatSession = {
   setCamera: (on: boolean) => Promise<void>;
   close: () => void;
 };
+
+const metaOf = (file?: FilePayload): MessageAttachment | undefined =>
+  file
+    ? {
+        name: file.name,
+        mime: file.mime,
+        size: Math.floor((file.data.length * 3) / 4),
+      }
+    : undefined;
+
+const fromPeerMessage = (
+  fromUserId: string,
+  event: Extract<P2pEvent, { type: "message" }>,
+): ChatMessage => ({
+  clientMessageId: event.clientMessageId,
+  conversationId: event.conversationId,
+  body: event.body,
+  createdAt: event.createdAt,
+  fromUserId,
+  attachment: event.attachment
+    ? {
+        name: event.attachment.name,
+        mime: event.attachment.mime,
+        size: event.attachment.size,
+      }
+    : undefined,
+});
 
 const captureLocal = async (): Promise<MediaStream> => {
   try {
@@ -65,7 +100,18 @@ export const startChatSession = async (input: {
   input.onMessages(messages);
   input.onStatus("Connecting…");
 
-  const [ticket, ice] = await Promise.all([signalTicket(), listIce()]);
+  const [ticket, ice, remote] = await Promise.all([
+    signalTicket(),
+    listIce(),
+    listMessages(input.conversationId),
+  ]);
+  if (remote.ok) {
+    for (const item of remote.data) {
+      messages = persistMessage(input.conversationId, item);
+    }
+    input.onMessages(messages);
+    void markRead(input.conversationId);
+  }
   if (!ticket.ok) {
     input.onStatus("Could not start signaling");
     throw new Error("Signal ticket failed");
@@ -113,13 +159,8 @@ export const startChatSession = async (input: {
 
   const onPeerEvent = (fromUserId: string, event: P2pEvent) => {
     if (event.type === "message") {
-      apply({
-        clientMessageId: event.clientMessageId,
-        conversationId: event.conversationId,
-        body: event.body,
-        createdAt: event.createdAt,
-        fromUserId,
-      });
+      apply(fromPeerMessage(fromUserId, event));
+      void markRead(input.conversationId);
       return;
     }
     if (event.type === "typing") {
@@ -318,27 +359,42 @@ export const startChatSession = async (input: {
   };
 
   return {
-    send: (body) => {
-      const trimmed = body.trim();
-      if (!trimmed) {
+    send: async (outgoing) => {
+      const trimmed = outgoing.body.trim();
+      if (!trimmed && !outgoing.attachment) {
         return;
       }
       const createdAt = new Date().toISOString();
       const clientMessageId = crypto.randomUUID();
-      apply({
+      const posted = await postMessage(input.conversationId, {
         clientMessageId,
-        conversationId: input.conversationId,
         body: trimmed,
         createdAt,
-        fromUserId: input.self.id,
+        attachment: outgoing.attachment,
       });
+      if (!posted.ok) {
+        input.onStatus("Could not save that message");
+        return;
+      }
+      apply(posted.data);
       mesh.broadcast({
         type: "message",
         clientMessageId,
         conversationId: input.conversationId,
         body: trimmed,
         createdAt,
+        attachment: outgoing.attachment
+          ? { ...metaOf(outgoing.attachment), data: outgoing.attachment.data }
+          : posted.data.attachment,
       });
+      signal.send({
+        type: "activity",
+        conversationId: input.conversationId,
+        preview: previewOf(posted.data).slice(0, 180),
+        createdAt,
+        clientMessageId,
+      });
+      window.dispatchEvent(new Event("chat-refine:activity"));
     },
     notifyTyping: () => {
       typing$.next();

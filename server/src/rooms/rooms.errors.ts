@@ -9,3 +9,11 @@ export class UserNotFound {
 export class CannotDmSelf {
   readonly _tag = "CannotDmSelf";
 }
+
+export class InvalidAttachment {
+  readonly _tag = "InvalidAttachment";
+}
+
+export class MessageNotFound {
+  readonly _tag = "MessageNotFound";
+}

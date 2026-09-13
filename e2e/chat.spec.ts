@@ -45,14 +45,16 @@ test("two members exchange a p2p text message", async ({ browser }) => {
   const body = `hello-p2p-${Date.now()}`;
   await ada.getByRole("textbox", { name: "Message", exact: true }).fill(body);
   await ada.getByRole("button", { name: "Send" }).click();
-  await expect(ada.getByText(body)).toBeVisible();
-  await expect(bob.getByText(body)).toBeVisible({ timeout: 15_000 });
+  await expect(ada.getByRole("main").getByText(body)).toBeVisible();
+  await expect(bob.getByRole("main").getByText(body)).toBeVisible({
+    timeout: 15_000,
+  });
 
   const marked = `note-${Date.now()}`;
   await ada.getByRole("textbox", { name: "Message", exact: true }).fill(`**${marked}**`);
   await ada.getByRole("button", { name: "Send" }).click();
-  await expect(ada.locator("strong", { hasText: marked })).toBeVisible();
-  await expect(bob.locator("strong", { hasText: marked })).toBeVisible({
+  await expect(ada.getByRole("main").locator("strong", { hasText: marked })).toBeVisible();
+  await expect(bob.getByRole("main").locator("strong", { hasText: marked })).toBeVisible({
     timeout: 15_000,
   });
 

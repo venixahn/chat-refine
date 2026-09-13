@@ -6,7 +6,13 @@ import {
 } from "@nestjs/common";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { CannotDmSelf, NotAMember, UserNotFound } from "./rooms.errors.ts";
+import {
+  CannotDmSelf,
+  InvalidAttachment,
+  MessageNotFound,
+  NotAMember,
+  UserNotFound,
+} from "./rooms.errors.ts";
 import { runRoomEffect } from "./rooms.http.ts";
 
 describe("runRoomEffect", () => {
@@ -20,6 +26,12 @@ describe("runRoomEffect", () => {
     await expect(runRoomEffect(Effect.fail(new CannotDmSelf()))).rejects.toBeInstanceOf(
       BadRequestException,
     );
+    await expect(
+      runRoomEffect(Effect.fail(new InvalidAttachment())),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      runRoomEffect(Effect.fail(new MessageNotFound())),
+    ).rejects.toBeInstanceOf(NotFoundException);
     await expect(runRoomEffect(Effect.fail(new Error("boom")))).rejects.toBeInstanceOf(
       InternalServerErrorException,
     );

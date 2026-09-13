@@ -10,6 +10,7 @@ export const createApp = async () => {
     logger: testing ? false : ["error", "warn", "log"],
   });
   app.useWebSocketAdapter(new WsAdapter(app));
+  app.useBodyParser("json", { limit: "2mb" });
   app.setGlobalPrefix("api");
   app.use(
     session({

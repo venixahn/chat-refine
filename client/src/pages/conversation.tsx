@@ -17,7 +17,10 @@ import {
   type ChatSession,
   type RemoteMedia,
 } from "../lib/chat-session.ts";
-import { getRoom } from "../lib/rooms-api.ts";
+import { readFilePayload } from "../lib/file.ts";
+import { getRoom, messageFileUrl } from "../lib/rooms-api.ts";
+
+const isImage = (mime: string) => mime.startsWith("image/");
 
 export const ConversationPage = () => {
   const params = useParams();
@@ -25,6 +28,8 @@ export const ConversationPage = () => {
   const [status, setStatus] = createSignal("Connecting…");
   const [typing, setTyping] = createSignal<string[]>([]);
   const [draft, setDraft] = createSignal("");
+  const [file, setFile] = createSignal<File | null>(null);
+  const [sendError, setSendError] = createSignal<string | null>(null);
   const [roomError, setRoomError] = createSignal<string | null>(null);
   const [session, setSession] = createSignal<ChatSession | undefined>();
   const [localStream, setLocalStream] = createSignal<MediaStream | null>(null);
@@ -109,9 +114,19 @@ export const ConversationPage = () => {
     });
   });
 
-  const sendDraft = () => {
-    session()?.send(draft());
-    setDraft("");
+  const sendDraft = async () => {
+    const pending = file();
+    setSendError(null);
+    try {
+      const attachment = pending ? await readFilePayload(pending) : undefined;
+      await session()?.send({ body: draft(), attachment });
+      setDraft("");
+      setFile(null);
+    } catch (error) {
+      setSendError(
+        error instanceof Error ? error.message : "Could not send that message",
+      );
+    }
   };
 
   return (
@@ -204,7 +219,7 @@ export const ConversationPage = () => {
           each={messages()}
           fallback={
             <li class="text-sm text-[var(--muted)]">
-              No messages on this device yet. When a peer is connected, text
+              No messages yet. History is stored on this server; live text also
               travels over a WebRTC data channel.
             </li>
           }
@@ -214,7 +229,36 @@ export const ConversationPage = () => {
               <p class="text-xs text-[var(--muted)]">
                 {authors().get(item.fromUserId) ?? "Peer"}
               </p>
-              <Markdown source={item.body} />
+              <Show when={item.body.trim().length > 0}>
+                <Markdown source={item.body} />
+              </Show>
+              <Show when={item.attachment}>
+                {(attached) => (
+                  <Show
+                    when={isImage(attached().mime)}
+                    fallback={
+                      <a
+                        href={messageFileUrl(
+                          item.conversationId,
+                          item.clientMessageId,
+                        )}
+                        class="mt-2 inline-block text-sm text-[var(--accent)]"
+                      >
+                        {attached().name}
+                      </a>
+                    }
+                  >
+                    <img
+                      src={messageFileUrl(
+                        item.conversationId,
+                        item.clientMessageId,
+                      )}
+                      alt={attached().name}
+                      class="mt-2 max-h-64 rounded-lg"
+                    />
+                  </Show>
+                )}
+              </Show>
             </li>
           )}
         </For>
@@ -228,9 +272,26 @@ export const ConversationPage = () => {
         class="border-t border-[var(--line)] px-6 py-4"
         onSubmit={(event) => {
           event.preventDefault();
-          sendDraft();
+          void sendDraft();
         }}
       >
+        <Show when={file()}>
+          {(picked) => (
+            <p class="mb-2 text-sm text-[var(--muted)]">
+              Attached {picked().name}{" "}
+              <button
+                type="button"
+                class="text-[var(--accent)]"
+                onClick={() => setFile(null)}
+              >
+                Remove
+              </button>
+            </p>
+          )}
+        </Show>
+        <Show when={sendError()}>
+          <p class="mb-2 text-sm text-red-300">{sendError()}</p>
+        </Show>
         <div class="flex gap-3">
           <textarea
             aria-label="Message"
@@ -243,11 +304,24 @@ export const ConversationPage = () => {
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                sendDraft();
+                void sendDraft();
               }
             }}
             class="min-h-[3rem] flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
           />
+          <label class="self-end rounded-full border border-[var(--line)] px-4 py-2 text-sm">
+            Attach
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain"
+              aria-label="Attach file"
+              class="sr-only"
+              onChange={(event) => {
+                setFile(event.currentTarget.files?.[0] ?? null);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
           <button
             type="submit"
             class="self-end rounded-full bg-[var(--accent)] px-5 py-2 font-medium text-[var(--bg)]"

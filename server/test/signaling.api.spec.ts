@@ -25,6 +25,8 @@ const resetDirectory = async (db: DbService) => {
   await db.update((data) => {
     data.profiles.length = 0;
     data.conversationMembers.length = 0;
+    data.messages.length = 0;
+    data.readCursors.length = 0;
     data.conversations.splice(
       0,
       data.conversations.length,
@@ -214,5 +216,51 @@ describe("signaling API", () => {
     expect(await forbidden).toMatchObject({ code: "forbidden" });
 
     adaSocket.close();
+  });
+
+  it("forwards activity to a member who has not joined", async () => {
+    const adaAgent = request.agent(app.getHttpServer());
+    const bobAgent = request.agent(app.getHttpServer());
+    const adaProfile = await adaAgent.post("/api/auth/signup").send(ada);
+    await bobAgent.post("/api/auth/signup").send(bob);
+    const adaTicket = await adaAgent.get("/api/signal/ticket");
+    const bobTicket = await bobAgent.get("/api/signal/ticket");
+    const adaSocket = await openSocket(port, adaTicket.body.ticket);
+    const bobSocket = await openSocket(port, bobTicket.body.ticket);
+
+    adaSocket.send(JSON.stringify({ type: "join", conversationId: "room-general" }));
+    await nextEvent(adaSocket, (event) => event.type === "joined");
+
+    const bobSaw = nextEvent(bobSocket, (event) => event.type === "activity");
+    adaSocket.send(
+      JSON.stringify({
+        type: "activity",
+        conversationId: "room-general",
+        preview: "hello inbox",
+        createdAt: "2026-09-13T12:00:00.000Z",
+        clientMessageId: "msg-ada-act-1",
+      }),
+    );
+    expect(await bobSaw).toMatchObject({
+      type: "activity",
+      preview: "hello inbox",
+      fromUserId: adaProfile.body.id,
+    });
+
+    const forbidden = nextEvent(bobSocket, (event) => event.type === "error");
+    const privateRoom = await adaAgent.post("/api/rooms").send({ name: "quiet" });
+    bobSocket.send(
+      JSON.stringify({
+        type: "activity",
+        conversationId: privateRoom.body.id,
+        preview: "nope",
+        createdAt: "2026-09-13T12:00:01.000Z",
+        clientMessageId: "msg-bob-act-1",
+      }),
+    );
+    expect(await forbidden).toMatchObject({ code: "forbidden" });
+
+    adaSocket.close();
+    bobSocket.close();
   });
 });

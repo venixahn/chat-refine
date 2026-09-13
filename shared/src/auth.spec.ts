@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loginSchema, signupSchema } from "./auth.ts";
+import { loginSchema, signupSchema, updateProfileSchema } from "./auth.ts";
 
 describe("signupSchema", () => {
   it("accepts a valid payload", () => {
@@ -27,6 +27,19 @@ describe("signupSchema", () => {
       password: "short",
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("updateProfileSchema", () => {
+  it("requires a display name or avatar", () => {
+    expect(
+      updateProfileSchema.safeParse({ displayName: "Ada Prime" }).success,
+    ).toBe(true);
+    expect(updateProfileSchema.safeParse({}).success).toBe(false);
+    expect(
+      updateProfileSchema.safeParse({ avatarUrl: "https://example.com/a.png" })
+        .success,
+    ).toBe(false);
   });
 });
 

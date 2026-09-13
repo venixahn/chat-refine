@@ -41,5 +41,14 @@ export const login = (body: { username: string; password: string }) =>
 
 export const me = () => request<PublicProfile>("/api/auth/me");
 
+export const updateProfile = (body: {
+  displayName?: string;
+  avatarUrl?: string | null;
+}) =>
+  request<PublicProfile>("/api/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+
 export const logout = () =>
   request<{ ok: true }>("/api/auth/logout", { method: "POST" });

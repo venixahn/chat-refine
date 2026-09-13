@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { JSONFilePreset } from "lowdb/node";
-import { emptyDb, type DbSchema } from "./schema.ts";
+import { emptyDb, normalizeDb, type DbSchema } from "./schema.ts";
 
 const repoDataPath = join(
   fileURLToPath(new URL("../../..", import.meta.url)),
@@ -43,6 +43,7 @@ export class DbService implements OnModuleInit {
     await mkdir(dirname(filePath), { recursive: true });
     this.db = await JSONFilePreset<DbSchema>(filePath, emptyDb());
     await this.update((data) => {
+      normalizeDb(data);
       seedRooms(data);
     });
   }
@@ -55,12 +56,14 @@ export class DbService implements OnModuleInit {
     const run = this.tail.then(
       async () => {
         await this.db.read();
+        normalizeDb(this.db.data);
         const result = fn(this.db.data);
         await this.db.write();
         return result;
       },
       async () => {
         await this.db.read();
+        normalizeDb(this.db.data);
         const result = fn(this.db.data);
         await this.db.write();
         return result;

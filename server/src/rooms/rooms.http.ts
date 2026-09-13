@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Effect } from "effect";
-import { CannotDmSelf, NotAMember, UserNotFound } from "./rooms.errors.ts";
+import {
+  CannotDmSelf,
+  InvalidAttachment,
+  MessageNotFound,
+  NotAMember,
+  UserNotFound,
+} from "./rooms.errors.ts";
 
 export const runRoomEffect = async <A, E>(
   effect: Effect.Effect<A, E>,
@@ -21,6 +27,12 @@ export const runRoomEffect = async <A, E>(
     }
     if (error instanceof CannotDmSelf) {
       throw new BadRequestException("Cannot message yourself");
+    }
+    if (error instanceof InvalidAttachment) {
+      throw new BadRequestException("Invalid attachment");
+    }
+    if (error instanceof MessageNotFound) {
+      throw new NotFoundException();
     }
     throw new InternalServerErrorException();
   }

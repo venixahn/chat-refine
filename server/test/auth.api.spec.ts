@@ -36,6 +36,8 @@ describe("auth API", () => {
     await db.update((data) => {
       data.profiles.length = 0;
       data.conversationMembers.length = 0;
+      data.messages.length = 0;
+      data.readCursors.length = 0;
     });
   });
 
@@ -98,4 +100,24 @@ describe("auth API", () => {
     const after = await agent.get("/api/auth/me");
     expect(after.status).toBe(401);
   });
+
+  it("updates the display name", async () => {
+    const agent = request.agent(app.getHttpServer());
+    await agent.post("/api/auth/signup").send(validSignup);
+    const updated = await agent
+      .patch("/api/auth/me")
+      .send({ displayName: "Ada Prime" });
+    expect(updated.status).toBe(200);
+    expect(updated.body.displayName).toBe("Ada Prime");
+    const me = await agent.get("/api/auth/me");
+    expect(me.body.displayName).toBe("Ada Prime");
+  });
+
+  it("rejects an empty profile patch", async () => {
+    const agent = request.agent(app.getHttpServer());
+    await agent.post("/api/auth/signup").send(validSignup);
+    const response = await agent.patch("/api/auth/me").send({});
+    expect(response.status).toBe(400);
+  });
 });
+

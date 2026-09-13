@@ -27,6 +27,13 @@ export const signalingFrameSchema = z.discriminatedUnion("type", [
     toUserId: z.string().min(1),
     candidate: z.string().min(1),
   }),
+  z.object({
+    type: z.literal("activity"),
+    conversationId: z.string().min(1),
+    preview: z.string().min(1).max(180),
+    createdAt: z.string().min(1),
+    clientMessageId: z.string().min(8),
+  }),
 ]);
 
 export type SignalingFrame = z.infer<typeof signalingFrameSchema>;
@@ -78,16 +85,32 @@ export const signalingEventSchema = z.discriminatedUnion("type", [
     code: z.enum(["forbidden", "bad-frame", "not-joined"]),
     message: z.string().min(1),
   }),
+  z.object({
+    type: z.literal("activity"),
+    conversationId: z.string().min(1),
+    fromUserId: z.string().min(1),
+    preview: z.string().min(1).max(180),
+    createdAt: z.string().min(1),
+    clientMessageId: z.string().min(8),
+  }),
 ]);
 
 export type SignalingEvent = z.infer<typeof signalingEventSchema>;
 
+const attachmentMetaSchema = z.object({
+  name: z.string().min(1).max(180),
+  mime: z.string().min(3).max(80),
+  size: z.number().int().nonnegative(),
+  data: z.string().min(8).max(1_400_000).optional(),
+});
+
 const chatLineSchema = z.object({
   clientMessageId: z.string().min(8),
   conversationId: z.string().min(1),
-  body: z.string().min(1).max(4000),
+  body: z.string().max(4000),
   createdAt: z.string().min(1),
   fromUserId: z.string().min(1),
+  attachment: attachmentMetaSchema.omit({ data: true }).optional(),
 });
 
 export const p2pEventSchema = z.discriminatedUnion("type", [
@@ -95,8 +118,9 @@ export const p2pEventSchema = z.discriminatedUnion("type", [
     type: z.literal("message"),
     clientMessageId: z.string().min(8),
     conversationId: z.string().min(1),
-    body: z.string().min(1).max(4000),
+    body: z.string().max(4000),
     createdAt: z.string().min(1),
+    attachment: attachmentMetaSchema.optional(),
   }),
   z.object({
     type: z.literal("typing"),

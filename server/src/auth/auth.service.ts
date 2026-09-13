@@ -4,7 +4,11 @@ import { Effect } from "effect";
 import { findFirst } from "fp-ts/Array";
 import { isNone, isSome } from "fp-ts/Option";
 import { pipe } from "fp-ts/function";
-import type { LoginInput, SignupInput } from "@chat-refine/shared";
+import type {
+  LoginInput,
+  SignupInput,
+  UpdateProfileInput,
+} from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
 import {
   toPublicProfile,
@@ -93,5 +97,26 @@ export class AuthService {
   publicById(id: string): PublicProfile | undefined {
     const found = findById(this.db.snapshot().profiles, id);
     return isSome(found) ? toPublicProfile(found.value) : undefined;
+  }
+
+  updateProfile(userId: string, input: UpdateProfileInput) {
+    const db = this.db;
+    return Effect.tryPromise({
+      try: () =>
+        db.update((data) => {
+          const found = findById(data.profiles, userId);
+          if (isNone(found)) {
+            throw new Error("Profile missing");
+          }
+          if (input.displayName !== undefined) {
+            found.value.displayName = input.displayName;
+          }
+          if (input.avatarUrl !== undefined) {
+            found.value.avatarUrl = input.avatarUrl;
+          }
+          return toPublicProfile(found.value);
+        }),
+      catch: (error) => new Error(String(error)),
+    });
   }
 }
