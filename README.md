@@ -33,7 +33,7 @@ A/V cap is **16 peers** (`AV_MESH_CAP`). Each caller sends media to Nest; Nest f
 | Validation | Zod |
 | Auth | Passport Local + `express-session` |
 | Transport | WebRTC data-channel mesh for live text; Nest SFU for call media; Nest stores history and signals SDP/ICE |
-| FP / reactive | fp-ts (pure), Effect (IO), RxJS (streams), Solid signals (view) |
+| FP / reactive | fp-ts (pure), Effect (IO), RxJS (streams), Solid signals (view). DB writes replace collections; WebRTC stays stateful |
 | Tests | Vitest, Supertest, Playwright, V8 coverage |
 | Quality | ESLint, Husky (`pre-commit` tests, `pre-push` e2e) |
 

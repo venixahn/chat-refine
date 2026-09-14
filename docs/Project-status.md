@@ -100,14 +100,14 @@ Shared and server stay behind the V8 gate. Client mesh helpers and SFU lock help
 
 ### Shared + server V8 coverage vs fail thresholds
 
-Source: local Vitest V8 · 14 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 129 unit/API tests, 14 Playwright specs.
+Source: local Vitest V8 · 14 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 134 unit/API tests, 14 Playwright specs.
 
 | Metric | Measured % | Fail threshold % |
 | --- | --- | --- |
-| Lines | 89 | 80 |
-| Statements | 89 | 80 |
-| Functions | 88.07 | 80 |
-| Branches | 85.33 | 70 |
+| Lines | 89.56 | 80 |
+| Statements | 89.56 | 80 |
+| Functions | 88.19 | 80 |
+| Branches | 84.43 | 70 |
 
 | Practice | How it shows up |
 | --- | --- |
@@ -130,7 +130,7 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 | `client/src/lib/mesh.ts` | Medium | Data-channel perfect negotiation and ICE queue |
 | Auth, wiki, pages | Low | Straightforward Nest + Solid + `docs/` |
 
-**Paradigm density.** fp-ts (pure), Effect (IO), RxJS (streams), and Solid signals all appear. That raises onboarding cost. The remaining risk is `RTCPeerConnection` edge cases that only Playwright hits, plus SFU offer glare if the pending-offer queue is bypassed.
+**Paradigm density.** fp-ts (pure data), Effect (IO), RxJS (streams), and Solid signals (view) stay in those lanes. Room and auth writes append/replace arrays instead of mutating rows in place. Signaling and inbox subscribe with RxJS. The remaining risk is `RTCPeerConnection` edge cases that only Playwright hits, plus SFU offer glare if the pending-offer queue is bypassed.
 
 ## Roadmap
 
@@ -160,4 +160,4 @@ Shipped work (history, inbox, SFU, HTTPS Vite, Slack-like thread, people search)
 
 ## Git
 
-This change: jump to unread, thread search, edit/delete, private invite, topic, and mute channel. The edit form stays mounted while history refreshes, and the thread does not auto-scroll while you are editing. Two-browser e2e specs share a fresh public channel instead of `#general`. Parent `develop` was `929dfa9`. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4). Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main` after production serve.
+This change: apply the existing fp-ts / Effect / RxJS / Solid split more consistently — immutable collection writes, tagged Effect errors to HTTP, RxJS signaling. Parent `develop` was `9956d2c`. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4). Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main` after production serve.

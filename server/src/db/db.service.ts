@@ -3,34 +3,30 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { JSONFilePreset } from "lowdb/node";
-import { emptyDb, normalizeDb, type DbSchema } from "./schema.ts";
+import { emptyDb, normalizeDb, seededRooms, type DbSchema } from "./schema.ts";
 
 const repoDataPath = join(
   fileURLToPath(new URL("../../..", import.meta.url)),
   "data/db.json",
 );
 
-const seedRooms = (data: DbSchema): void => {
-  if (data.conversations.length > 0) {
-    return;
-  }
-  const now = new Date().toISOString();
-  data.conversations.push(
-    {
-      id: "room-general",
-      kind: "group",
-      slug: "general",
-      name: "general",
-      createdAt: now,
-    },
-    {
-      id: "room-random",
-      kind: "group",
-      slug: "random",
-      name: "random",
-      createdAt: now,
-    },
-  );
+const applyDb = (data: DbSchema): DbSchema => {
+  const normalized = normalizeDb(data);
+  return {
+    ...normalized,
+    conversations: seededRooms(normalized, new Date().toISOString()),
+  };
+};
+
+const writeThrough = async <A>(
+  db: Awaited<ReturnType<typeof JSONFilePreset<DbSchema>>>,
+  fn: (data: DbSchema) => A,
+): Promise<A> => {
+  await db.read();
+  Object.assign(db.data, applyDb(db.data));
+  const result = fn(db.data);
+  await db.write();
+  return result;
 };
 
 @Injectable()
@@ -42,10 +38,7 @@ export class DbService implements OnModuleInit {
     const filePath = process.env.CHAT_REFINE_DB_PATH ?? repoDataPath;
     await mkdir(dirname(filePath), { recursive: true });
     this.db = await JSONFilePreset<DbSchema>(filePath, emptyDb());
-    await this.update((data) => {
-      normalizeDb(data);
-      seedRooms(data);
-    });
+    await this.update(() => undefined);
   }
 
   snapshot(): DbSchema {
@@ -54,20 +47,8 @@ export class DbService implements OnModuleInit {
 
   update<A>(fn: (data: DbSchema) => A): Promise<A> {
     const run = this.tail.then(
-      async () => {
-        await this.db.read();
-        normalizeDb(this.db.data);
-        const result = fn(this.db.data);
-        await this.db.write();
-        return result;
-      },
-      async () => {
-        await this.db.read();
-        normalizeDb(this.db.data);
-        const result = fn(this.db.data);
-        await this.db.write();
-        return result;
-      },
+      async () => writeThrough(this.db, fn),
+      async () => writeThrough(this.db, fn),
     );
     this.tail = run.then(
       () => undefined,

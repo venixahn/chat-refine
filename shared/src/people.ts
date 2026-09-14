@@ -8,18 +8,16 @@ export const hasSubsequence = (haystack: string, needle: string): boolean => {
   if (needle.length === 0) {
     return true;
   }
-  let offset = 0;
-  const hay = haystack.toLowerCase();
   const query = needle.toLowerCase();
-  for (const character of hay) {
-    if (character === query[offset]) {
-      offset += 1;
-    }
-    if (offset === query.length) {
-      return true;
-    }
-  }
-  return false;
+  return (
+    [...haystack.toLowerCase()].reduce(
+      (offset, character) =>
+        offset < query.length && character === query[offset]
+          ? offset + 1
+          : offset,
+      0,
+    ) === query.length
+  );
 };
 
 export const peopleScore = (query: string, person: SearchablePerson): number => {

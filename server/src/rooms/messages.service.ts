@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { Effect } from "effect";
+import { filter, map } from "fp-ts/Array";
+import { pipe } from "fp-ts/function";
 import type { ChatMessage, PostMessageInput } from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
+import { append, replaceWhere, upsertWhere } from "../db/collections.ts";
 import type { StoredAttachment, StoredMessage } from "../db/schema.ts";
 import { FileStore } from "../files/file-store.ts";
 import {
@@ -50,13 +53,12 @@ export class MessagesService {
     if (!this.rooms.isMember(userId, conversationId)) {
       return Effect.fail(new NotAMember());
     }
-    const rows = this.db
-      .snapshot()
-      .messages.filter((item) => item.conversationId === conversationId)
-      .slice()
-      .sort(byTimeThenId)
-      .slice(-200)
-      .map(toPublicMessage);
+    const rows = pipe(
+      this.db.snapshot().messages,
+      filter((item) => item.conversationId === conversationId),
+      (items) => items.slice().sort(byTimeThenId).slice(-200),
+      map(toPublicMessage),
+    );
     return Effect.succeed(rows);
   }
 
@@ -104,15 +106,13 @@ export class MessagesService {
       try: () =>
         db.update((data) => {
           const now = new Date().toISOString();
-          const found = data.readCursors.find(
+          data.readCursors = upsertWhere(
+            data.readCursors,
             (item) =>
               item.userId === userId && item.conversationId === conversationId,
+            (item) => ({ ...item, lastReadAt: now }),
+            () => ({ userId, conversationId, lastReadAt: now }),
           );
-          if (found) {
-            found.lastReadAt = now;
-            return;
-          }
-          data.readCursors.push({ userId, conversationId, lastReadAt: now });
         }),
       catch: (error) => new Error(String(error)),
     });
@@ -124,10 +124,11 @@ export class MessagesService {
     messageId: string,
     body: string,
   ): Effect.Effect<ChatMessage, NotAMember | NotAuthor | MessageNotFound | Error> {
-    return this.rewrite(userId, conversationId, messageId, (stored) => {
-      stored.body = body.trim();
-      stored.editedAt = new Date().toISOString();
-    });
+    return this.rewrite(userId, conversationId, messageId, (stored) => ({
+      ...stored,
+      body: body.trim(),
+      editedAt: new Date().toISOString(),
+    }));
   }
 
   retract(
@@ -135,16 +136,17 @@ export class MessagesService {
     conversationId: string,
     messageId: string,
   ): Effect.Effect<ChatMessage, NotAMember | NotAuthor | MessageNotFound | Error> {
-    return this.rewrite(userId, conversationId, messageId, (stored) => {
-      stored.deletedAt = new Date().toISOString();
-    });
+    return this.rewrite(userId, conversationId, messageId, (stored) => ({
+      ...stored,
+      deletedAt: new Date().toISOString(),
+    }));
   }
 
   private rewrite(
     userId: string,
     conversationId: string,
     messageId: string,
-    apply: (stored: StoredMessage) => void,
+    apply: (stored: StoredMessage) => StoredMessage,
   ): Effect.Effect<ChatMessage, NotAMember | NotAuthor | MessageNotFound | Error> {
     if (!this.rooms.isMember(userId, conversationId)) {
       return Effect.fail(new NotAMember());
@@ -164,8 +166,15 @@ export class MessagesService {
           if (found.fromUserId !== userId) {
             throw new NotAuthor();
           }
-          apply(found);
-          return toPublicMessage(found);
+          const next = apply(found);
+          data.messages = replaceWhere(
+            data.messages,
+            (item) =>
+              item.clientMessageId === messageId &&
+              item.conversationId === conversationId,
+            () => next,
+          );
+          return toPublicMessage(next);
         }),
       catch: (error) => {
         if (error instanceof MessageNotFound || error instanceof NotAuthor) {
@@ -256,7 +265,7 @@ export class MessagesService {
             createdAt: input.createdAt ?? new Date().toISOString(),
             attachment,
           };
-          data.messages.push(stored);
+          data.messages = append(data.messages, stored);
           return toPublicMessage(stored);
         });
       },

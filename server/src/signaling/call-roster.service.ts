@@ -38,18 +38,16 @@ export class CallRosterService {
     userId: string,
     conversationIds: readonly string[],
   ): { conversationId: string; roster: CallPresence[] }[] {
-    const updates: { conversationId: string; roster: CallPresence[] }[] = [];
-    for (const conversationId of conversationIds) {
+    return conversationIds.flatMap((conversationId) => {
       const result = this.apply(conversationId, userId, {
         inCall: false,
         audio: false,
         video: false,
       });
-      if (result.ok && result.changed) {
-        updates.push({ conversationId, roster: result.roster });
-      }
-    }
-    return updates;
+      return result.ok && result.changed
+        ? [{ conversationId, roster: result.roster }]
+        : [];
+    });
   }
 
   private write(conversationId: string, roster: CallPresence[]): void {

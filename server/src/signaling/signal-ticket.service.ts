@@ -43,10 +43,8 @@ export class SignalTicketService {
 
   private gc(): void {
     const now = Date.now();
-    for (const [key, record] of this.tickets) {
-      if (record.expiresAt <= now) {
-        this.tickets.delete(key);
-      }
-    }
+    [...this.tickets]
+      .filter(([, record]) => record.expiresAt <= now)
+      .forEach(([key]) => this.tickets.delete(key));
   }
 }

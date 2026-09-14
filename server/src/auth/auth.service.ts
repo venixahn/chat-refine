@@ -11,6 +11,7 @@ import {
   type UpdateProfileInput,
 } from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
+import { append, appendAll, replaceWhere } from "../db/collections.ts";
 import {
   toPublicProfile,
   isPublicGroup,
@@ -31,6 +32,21 @@ const findById = (profiles: Profile[], id: string) =>
     profiles,
     findFirst((profile) => profile.id === id),
   );
+
+const patchProfile = (
+  profile: Profile,
+  input: UpdateProfileInput,
+): Profile => ({
+  ...profile,
+  displayName:
+    input.displayName !== undefined ? input.displayName : profile.displayName,
+  avatarUrl: input.avatarUrl !== undefined ? input.avatarUrl : profile.avatarUrl,
+  bio: input.bio !== undefined ? input.bio : profile.bio,
+  status: input.status !== undefined ? input.status : profile.status,
+  preferences: input.preferences
+    ? { ...profile.preferences, ...input.preferences }
+    : profile.preferences,
+});
 
 @Injectable()
 export class AuthService {
@@ -61,15 +77,16 @@ export class AuthService {
             if (isSome(findByUsername(data.profiles, input.username))) {
               throw new UsernameTaken();
             }
-            data.profiles.push(profile);
-            for (const room of data.conversations.filter(isPublicGroup)) {
-              data.conversationMembers.push({
+            data.profiles = append(data.profiles, profile);
+            data.conversationMembers = appendAll(
+              data.conversationMembers,
+              data.conversations.filter(isPublicGroup).map((room) => ({
                 conversationId: room.id,
                 userId: profile.id,
-                role: "member",
+                role: "member" as const,
                 muted: false,
-              });
-            }
+              })),
+            );
             return toPublicProfile(profile);
           }),
         catch: (error) =>
@@ -113,25 +130,13 @@ export class AuthService {
           if (isNone(found)) {
             throw new Error("Profile missing");
           }
-          if (input.displayName !== undefined) {
-            found.value.displayName = input.displayName;
-          }
-          if (input.avatarUrl !== undefined) {
-            found.value.avatarUrl = input.avatarUrl;
-          }
-          if (input.bio !== undefined) {
-            found.value.bio = input.bio;
-          }
-          if (input.status !== undefined) {
-            found.value.status = input.status;
-          }
-          if (input.preferences) {
-            found.value.preferences = {
-              ...found.value.preferences,
-              ...input.preferences,
-            };
-          }
-          return toPublicProfile(found.value);
+          const next = patchProfile(found.value, input);
+          data.profiles = replaceWhere(
+            data.profiles,
+            (profile) => profile.id === userId,
+            () => next,
+          );
+          return toPublicProfile(next);
         }),
       catch: (error) => new Error(String(error)),
     });

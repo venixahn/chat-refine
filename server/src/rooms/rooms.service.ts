@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { Effect } from "effect";
 import { filter, findFirst, map } from "fp-ts/Array";
-import { isNone, isSome } from "fp-ts/Option";
+import { isNone, isSome, match as matchOption, filter as optionFilter } from "fp-ts/Option";
 import { pipe } from "fp-ts/function";
 import {
   dmPairKey,
@@ -14,6 +14,7 @@ import {
   type PatchRoomInput,
 } from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
+import { append, appendAll, replaceWhere } from "../db/collections.ts";
 import {
   toPublicProfile,
   isPublicGroup,
@@ -54,9 +55,16 @@ const membershipOf = (
   conversationId: string,
   userId: string,
 ): ConversationMember | undefined =>
-  members.find(
-    (member) =>
-      member.conversationId === conversationId && member.userId === userId,
+  pipe(
+    members,
+    findFirst(
+      (member) =>
+        member.conversationId === conversationId && member.userId === userId,
+    ),
+    matchOption(
+      () => undefined,
+      (member) => member,
+    ),
   );
 
 const isMemberOf = (
@@ -239,12 +247,14 @@ export class RoomsService {
 
   listDirectory(userId: string): DirectoryRoom[] {
     const data = this.db.snapshot();
-    return data.conversations
-      .filter(isPublicGroup)
-      .map((room) => ({
+    return pipe(
+      data.conversations,
+      filter(isPublicGroup),
+      map((room) => ({
         ...toRoomView(room, userId, data),
         joined: isMemberOf(data.conversationMembers, room.id, userId),
-      }));
+      })),
+    );
   }
 
   getIfMember(
@@ -252,14 +262,17 @@ export class RoomsService {
     conversationId: string,
   ): Effect.Effect<RoomView, NotAMember> {
     const data = this.db.snapshot();
-    const room = pipe(
+    return pipe(
       data.conversations,
       findFirst((item) => item.id === conversationId),
+      optionFilter((room) =>
+        isMemberOf(data.conversationMembers, room.id, userId),
+      ),
+      matchOption(
+        () => Effect.fail(new NotAMember()),
+        (room) => Effect.succeed(toRoomView(room, userId, data)),
+      ),
     );
-    if (isNone(room) || !isMemberOf(data.conversationMembers, conversationId, userId)) {
-      return Effect.fail(new NotAMember());
-    }
-    return Effect.succeed(toRoomView(room.value, userId, data));
   }
 
   createGroup(userId: string, input: CreateGroupInput) {
@@ -276,8 +289,8 @@ export class RoomsService {
             visibility: input.private ? "private" : "public",
             createdAt: new Date().toISOString(),
           };
-          data.conversations.push(room);
-          data.conversationMembers.push({
+          data.conversations = append(data.conversations, room);
+          data.conversationMembers = append(data.conversationMembers, {
             conversationId: room.id,
             userId,
             role: "owner",
@@ -302,7 +315,7 @@ export class RoomsService {
       try: () =>
         db.update((current) => {
           if (!isMemberOf(current.conversationMembers, conversationId, userId)) {
-            current.conversationMembers.push({
+            current.conversationMembers = append(current.conversationMembers, {
               conversationId,
               userId,
               role: "member",
@@ -351,8 +364,8 @@ export class RoomsService {
             visibility: "private",
             createdAt: new Date().toISOString(),
           };
-          data.conversations.push(room);
-          data.conversationMembers.push(
+          data.conversations = append(data.conversations, room);
+          data.conversationMembers = appendAll(data.conversationMembers, [
             { conversationId: room.id, userId, role: "member", muted: false },
             {
               conversationId: room.id,
@@ -360,7 +373,7 @@ export class RoomsService {
               role: "member",
               muted: false,
             },
-          );
+          ]);
           return { room: toRoomView(room, userId, data), created: true };
         }),
       catch: (error) => new Error(String(error)),
@@ -398,7 +411,7 @@ export class RoomsService {
       try: () =>
         db.update((current) => {
           if (!isMemberOf(current.conversationMembers, conversationId, peer.value.id)) {
-            current.conversationMembers.push({
+            current.conversationMembers = append(current.conversationMembers, {
               conversationId,
               userId: peer.value.id,
               role: "member",
@@ -423,8 +436,13 @@ export class RoomsService {
           if (!room || room.kind !== "group") {
             throw new NotAGroup();
           }
-          room.topic = input.topic.trim();
-          return toRoomView(room, userId, data);
+          const next = { ...room, topic: input.topic.trim() };
+          data.conversations = replaceWhere(
+            data.conversations,
+            (item) => item.id === conversationId,
+            () => next,
+          );
+          return toRoomView(next, userId, data);
         }),
       catch: (error) =>
         error instanceof NotAGroup ? error : new Error(String(error)),
@@ -448,7 +466,12 @@ export class RoomsService {
           if (!membership || !room) {
             throw new NotAMember();
           }
-          membership.muted = input.muted;
+          data.conversationMembers = replaceWhere(
+            data.conversationMembers,
+            (item) =>
+              item.conversationId === conversationId && item.userId === userId,
+            (item) => ({ ...item, muted: input.muted }),
+          );
           return toRoomView(room, userId, data);
         }),
       catch: (error) =>
@@ -458,10 +481,12 @@ export class RoomsService {
 
   listPeople(userId: string, query = ""): PublicProfile[] {
     const data = this.db.snapshot();
-    const visible = data.profiles
-      .filter((profile) => profile.id !== userId)
-      .map(toPublicProfile)
-      .filter((profile) => visibleTo(data, userId, profile));
+    const visible = pipe(
+      data.profiles,
+      filter((profile) => profile.id !== userId),
+      map(toPublicProfile),
+      filter((profile) => visibleTo(data, userId, profile)),
+    );
     return rankPeople(query, visible);
   }
 }
