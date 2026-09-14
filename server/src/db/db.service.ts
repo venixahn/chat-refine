@@ -10,12 +10,13 @@ const repoDataPath = join(
   "data/db.json",
 );
 
-const applyDb = (data: DbSchema): DbSchema => {
-  const normalized = normalizeDb(data);
-  return {
-    ...normalized,
-    conversations: seededRooms(normalized, new Date().toISOString()),
-  };
+const applyDb = (data: DbSchema): void => {
+  const next = normalizeDb(data);
+  data.profiles = next.profiles;
+  data.conversations = seededRooms(next, new Date().toISOString());
+  data.conversationMembers = next.conversationMembers;
+  data.messages = next.messages;
+  data.readCursors = next.readCursors;
 };
 
 const writeThrough = async <A>(
@@ -23,7 +24,7 @@ const writeThrough = async <A>(
   fn: (data: DbSchema) => A,
 ): Promise<A> => {
   await db.read();
-  Object.assign(db.data, applyDb(db.data));
+  applyDb(db.data);
   const result = fn(db.data);
   await db.write();
   return result;

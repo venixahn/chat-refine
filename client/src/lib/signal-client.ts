@@ -3,22 +3,13 @@ import {
   type SignalingEvent,
   type SignalingFrame,
 } from "@chat-refine/shared";
-import { filter, fromEvent, map, Subject } from "rxjs";
+import { Subject } from "rxjs";
 
 export type SignalClient = {
   events$: Subject<SignalingEvent>;
   ready: Promise<void>;
   send: (frame: SignalingFrame) => void;
   close: () => void;
-};
-
-const parseFrame = (raw: unknown): SignalingEvent | undefined => {
-  try {
-    const parsed = signalingEventSchema.safeParse(JSON.parse(String(raw)));
-    return parsed.success ? parsed.data : undefined;
-  } catch {
-    return undefined;
-  }
 };
 
 export const connectSignal = (ticket: string): SignalClient => {
@@ -38,12 +29,16 @@ export const connectSignal = (ticket: string): SignalClient => {
       }
     });
   });
-  const messages = fromEvent<MessageEvent>(socket, "message")
-    .pipe(
-      map((event) => parseFrame(event.data)),
-      filter((event): event is SignalingEvent => event !== undefined),
-    )
-    .subscribe((event) => events$.next(event));
+  socket.addEventListener("message", (event) => {
+    try {
+      const parsed = signalingEventSchema.safeParse(JSON.parse(String(event.data)));
+      if (parsed.success) {
+        events$.next(parsed.data);
+      }
+    } catch {
+      // Drop non-JSON frames.
+    }
+  });
   return {
     events$,
     ready,
@@ -53,7 +48,6 @@ export const connectSignal = (ticket: string): SignalClient => {
       }
     },
     close: () => {
-      messages.unsubscribe();
       events$.complete();
       socket.close();
     },
