@@ -59,7 +59,7 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | Internet ICE (Google STUN) | Done on develop | Hard NAT still needs TURN |
 | In-repo wiki (`docs/`) | Done | Native GitHub Wiki locked on private free plan |
 | Production single process | Not wired | Nest does not yet serve `client/dist` |
-| Promote develop to main | Not done | `main` is 39 commits behind |
+| Promote develop to main | Not done | `main` is 45 commits behind |
 
 ## UX
 
@@ -115,7 +115,7 @@ Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are e
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
 | Hooks | pre-commit Vitest; pre-push Playwright (10 specs) |
 | Complexity | ESLint complexity max 10 |
-| Git Flow | `develop` is integration; `main` is 39 commits behind; no leftover feature branches |
+| Git Flow | `develop` is integration; `main` is 45 commits behind; no leftover feature branches |
 | Docs | README and `docs/` update in the same change as the code |
 | Security posture | Argon2 passwords; session cookie; default `SESSION_SECRET` fallback in create-app |
 
@@ -149,4 +149,4 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 
 ## Git
 
-`develop` @ `66691e8` has inbox, wiki, the Nest SFU, and this in-repo status export. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4), 39 commits behind. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main`.
+`develop` @ `5bc4ed5` has inbox, wiki, the Nest SFU, LAN HTTP send (UUID fallback), and this in-repo status export. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4), 45 commits behind. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main`.
