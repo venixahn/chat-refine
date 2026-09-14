@@ -292,6 +292,7 @@ export const startChatSession = async (input: {
     input.onStatus(
       event.peers.length === 0 ? "Waiting for peers" : "Connecting peers…",
     );
+    void mergeRemoteHistory(input.conversationId, apply);
   };
 
   const onPeerLeft = (userId: string) => {

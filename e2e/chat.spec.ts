@@ -77,8 +77,12 @@ test("an open room shows text from history when activity arrives", async ({
 
   await ada.getByRole("link", { name: "general" }).click();
   await bob.getByRole("link", { name: "general" }).click();
-  await expect(ada.getByRole("textbox", { name: "Message", exact: true })).toBeVisible();
-  await expect(bob.getByRole("textbox", { name: "Message", exact: true })).toBeVisible();
+  await expect(ada.getByText(/Waiting for peers|Connecting peers|Connected ·/)).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(bob.getByText(/Waiting for peers|Connecting peers|Connected ·/)).toBeVisible({
+    timeout: 20_000,
+  });
 
   const body = `hello-room-${Date.now()}`;
   await ada.getByRole("textbox", { name: "Message", exact: true }).fill(body);
