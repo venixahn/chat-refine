@@ -37,7 +37,7 @@ A/V cap is **16 peers** (`AV_MESH_CAP`). Each caller sends media to Nest; Nest f
 | Tests | Vitest, Supertest, Playwright, V8 coverage |
 | Quality | ESLint, Husky (`pre-commit` tests, `pre-push` e2e) |
 
-No OAuth. Default ICE uses Google’s public STUN (`stun.l.google.com` and stun1–4). Live chat and call media still go peer-to-peer. Message bodies and small files are also written to `data/db.json` so history, unread, and other devices stay in sync. Optional: your own TURN / coturn via `ICE_SERVERS`.
+No OAuth. Default ICE uses Google’s public STUN (`stun.l.google.com` and stun1–4). Live text stays on a WebRTC data-channel mesh. Call audio and video go through Nest’s SFU. Message bodies and small files are also written to `data/db.json` so history, unread, and other devices stay in sync. Optional: your own TURN / coturn via `ICE_SERVERS`.
 
 ## Requirements
 
@@ -86,7 +86,7 @@ Husky runs `npm test` on commit and `npm run test:e2e` on push. Do not use `--no
 
 Signed-in clients load ICE servers from `GET /api/ice` and pass them into each `RTCPeerConnection`.
 
-**Default (blank `ICE_SERVERS`):** Google’s public STUN (`stun.l.google.com:19302` and stun1–4). That is enough for most home/office NATs. Nest still only signals; media stays peer-to-peer.
+**Default (blank `ICE_SERVERS`):** Google’s public STUN (`stun.l.google.com:19302` and stun1–4). That is enough for most home/office NATs. The same ICE list is used for the text mesh and for each caller’s SFU connection. Nest signals both; call media is forwarded by the SFU, live text is not.
 
 **LAN-only:** `ICE_SERVERS=[]` — host candidates, no STUN.
 
@@ -113,7 +113,7 @@ If peers never leave “Connecting peers…”, STUN could not punch the NAT —
 - `feature/<name>` — work branched from `develop`, merged back to `develop`
 - `release/*` / `hotfix/*` — stabilize or patch production
 
-Atomic commits, concise conventional messages (`feat:`, `fix:`, `test:`, `refactor:`). Push the feature branch after each green commit. Update this README in the same change when behavior or setup changes.
+Atomic commits, concise conventional messages (`feat:`, `fix:`, `test:`, `refactor:`). Push the feature branch after each green commit. Update this README and `docs/` in the same change when behavior, setup, or status changes.
 
 ## Wiki
 
