@@ -34,6 +34,7 @@ export default defineConfig({
     {
       command: "npm run dev -w client",
       url: "https://127.0.0.1:5173",
+      ignoreHTTPSErrors: true,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

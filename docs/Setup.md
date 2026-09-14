@@ -45,4 +45,4 @@ npm run test:e2e  # Playwright
 npm run lint
 ```
 
-Coverage must stay at **80%** lines/statements/functions and **70%** branches. Husky runs tests on commit and e2e on push.
+Coverage must stay at **80%** lines/statements/functions and **70%** branches. Husky runs tests on commit and e2e on push. Playwright talks to Vite over HTTPS and ignores the self-signed certificate.

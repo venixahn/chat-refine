@@ -113,7 +113,7 @@ Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are e
 | Practice | How it shows up |
 | --- | --- |
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
-| Hooks | pre-commit Vitest; pre-push Playwright (10 specs) |
+| Hooks | pre-commit Vitest; pre-push Playwright (10 specs, HTTPS Vite, ignore self-signed cert) |
 | Complexity | ESLint complexity max 10 |
 | Git Flow | `develop` is integration; `main` is 51 commits behind; no leftover feature branches |
 | Docs | README and `docs/` update in the same change as the code |
