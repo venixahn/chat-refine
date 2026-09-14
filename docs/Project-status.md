@@ -1,12 +1,12 @@
 # chat-refine status
 
-Late alpha. Snapshot of `develop` @ `affc427`, 13 Sep 2026.
+Late alpha. Snapshot of `develop` @ `78ec514`, 13 Sep 2026.
 
 This page is the in-repo export of the Cursor project-status canvas. The live canvas is a local Cursor file (not in git). Anyone with the repo can read this markdown.
 
 On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, rooms, history, unread, files, signaling, and the SFU. Live text stays on a WebRTC data-channel mesh.
 
-**Core loop is complete on `develop`.** Sign up, rooms and DMs, server-backed history, inbox unread, small files, notifications, profile edit, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. `main` is still 33 commits behind (rooms/signaling only). Production serve and TURN are not done.
+**Core loop is complete on `develop`.** Sign up, rooms and DMs, server-backed history, inbox unread, small files, notifications, profile edit, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. `main` is still 35 commits behind (rooms/signaling only). Production serve and TURN are not done.
 
 | Maturity | Shared + server lines | Playwright e2e last push | SFU call cap |
 | --- | --- | --- | --- |
@@ -58,7 +58,7 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | Internet ICE (Google STUN) | Done on develop | Hard NAT still needs TURN |
 | In-repo wiki (`docs/`) | Done | Native GitHub Wiki locked on private free plan |
 | Production single process | Not wired | Nest does not yet serve `client/dist` |
-| Promote develop to main | Not done | `main` is 33 commits behind |
+| Promote develop to main | Not done | `main` is 35 commits behind |
 
 ## UX
 
@@ -114,7 +114,7 @@ Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are e
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
 | Hooks | pre-commit Vitest; pre-push Playwright (9 specs) |
 | Complexity | ESLint complexity max 10 |
-| Git Flow | `develop` is integration; `main` is 33 commits behind; no leftover feature branches |
+| Git Flow | `develop` is integration; `main` is 35 commits behind; no leftover feature branches |
 | Security posture | Argon2 passwords; session cookie; default `SESSION_SECRET` fallback in create-app |
 
 ## Complexity
@@ -146,4 +146,4 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 
 ## Git
 
-`develop` @ `affc427` has inbox, wiki, the Nest SFU, and a standing rule to refresh status after every change. `main` stopped at rooms/signaling (PR #4), 33 commits behind. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main`.
+`develop` @ `78ec514` has inbox, wiki, the Nest SFU, and this in-repo status export. `main` stopped at rooms/signaling (PR #4), 35 commits behind. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main`.
