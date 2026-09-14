@@ -3,21 +3,23 @@
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0e1116;
-  --surface: #171b22;
-  --line: #2a3140;
+  --bg: #1a1d21;
+  --sidebar: #121016;
+  --surface: #1f2228;
+  --line: #2c313a;
   --text: #e8edf5;
-  --muted: #93a0b5;
+  --muted: #8b95a7;
   --accent: #7dd3c4;
 }
 
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #f4f6f8;
+  --bg: #ffffff;
+  --sidebar: #f8f4f2;
   --surface: #ffffff;
-  --line: #d5dbe6;
-  --text: #141820;
-  --muted: #5b6578;
+  --line: #e4e0dc;
+  --text: #1d1c1d;
+  --muted: #616061;
   --accent: #0f766e;
 }
 

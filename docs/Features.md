@@ -6,7 +6,7 @@ Working on `develop`:
 - Room directory, group create/join, 1:1 DMs
 - Authenticated signaling and ICE list
 - P2P text plus server-stored history. An open room also pulls history when activity arrives, so text still shows if the data channel is not up yet.
-- Sent messages on the right, received on the left
+- Slack-like thread: left-aligned messages with avatar, name, and time; consecutive messages from the same person are grouped. Boxed composer (`Message {room}`). Sidebar uses a compact workspace header, `#` channels, and unread bold.
 - Unread counts and last-message previews
 - Attachments: one Attach control for files or a folder (the folder input sets `webkitdirectory`; folders become a zip)
 - Desktop notifications (opt-in **Notify**)

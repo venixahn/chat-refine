@@ -1,0 +1,14 @@
+---
+description: Slack-like UX — elegant, simple, intuitive
+alwaysApply: true
+---
+
+# Slack-like UX
+
+Every UI change should make chat-refine quieter and more obvious, like Slack. Prefer one clear action over extra chrome. Do not put protocol jargon (WebRTC, SFU, mesh, ICE) in user-facing copy.
+
+- Sidebar: compact workspace header, `#` on channels, unread is bold + badge, active room is highlighted. Keep accessible names e2e already uses (`general`, `Edit profile`, `Find people`, `Rooms`).
+- Thread: left-aligned messages with avatar, name, and clock. Group consecutive messages from the same person. Empty state is human (“This is the start of #general”).
+- Composer: one boxed field. Placeholder `Message {room}`. Aria-label stays `Message`. Attach and Send stay labeled those words. Enter sends; Shift+Enter is a new line.
+- Status strings `Waiting for peers` and `Connected ·` must stay visible — Playwright matches them.
+- Prefer fewer controls, more whitespace, and muted labels over extra buttons.

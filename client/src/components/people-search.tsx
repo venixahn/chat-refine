@@ -13,14 +13,14 @@ export const PeopleSearch = (props: {
     class="flex flex-col gap-2"
     onSubmit={(event) => props.onSubmit(event)}
   >
-    <label class="text-xs tracking-[0.18em] text-[var(--muted)] uppercase">
+    <label class="text-xs font-semibold text-[var(--muted)]">
       Find people
       <input
         value={props.query}
         onInput={(event) => props.onQuery(event.currentTarget.value)}
         placeholder="Name or username"
         aria-label="Find people"
-        class="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm normal-case tracking-normal text-[var(--text)]"
+        class="mt-1 w-full rounded-md border border-[var(--line)] bg-[var(--bg)] px-2 py-1.5 text-sm font-normal text-[var(--text)]"
       />
     </label>
     <Show when={props.query.trim().length > 0}>
@@ -47,7 +47,7 @@ export const PeopleSearch = (props: {
     </Show>
     <button
       type="submit"
-      class="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm"
+      class="rounded-md border border-[var(--line)] px-3 py-1.5 text-sm"
     >
       Open chat
     </button>

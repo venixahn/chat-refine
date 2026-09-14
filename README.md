@@ -66,7 +66,7 @@ npm run dev
 - Client: [https://127.0.0.1:5173](https://127.0.0.1:5173) (also on your LAN IP over HTTPS)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite binds all interfaces, serves HTTPS, and proxies `/api` and `/ws` to Nest. Accept the self-signed certificate once. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. An open thread also refetches history when activity arrives. Folder attach packs the directory into a zip. Your messages sit on the right; others on the left. Join call works on that HTTPS origin, including a LAN hostname. Click your name to edit bio, status, theme, visibility, or pick one of 36 avatars (or upload your own). Use **Notify** if you want desktop alerts while another tab is focused.
+Vite binds all interfaces, serves HTTPS, and proxies `/api` and `/ws` to Nest. Accept the self-signed certificate once. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. An open thread also refetches history when activity arrives. Folder attach packs the directory into a zip. Messages are left-aligned with name and time, like Slack. Consecutive messages from the same person are grouped. Join call works on that HTTPS origin, including a LAN hostname. Click your name to edit bio, status, theme, visibility, or pick one of 36 avatars (or upload your own). Use **Notify** if you want desktop alerts while another tab is focused.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 

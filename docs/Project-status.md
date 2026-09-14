@@ -77,8 +77,8 @@ flowchart LR
 
 | Flow | Detail |
 | --- | --- |
-| Directory | Unread, last message, rooms, DMs, create, find |
-| Thread | Server history, sided bubbles, Attach (file or folder zip), Enter to send; open thread refetches on activity |
+| Directory | Unread bold + badge, last message, `#` channels, DMs, create, find |
+| Thread | Slack-like left-aligned + grouped bursts, boxed composer, Attach (file or folder zip), Enter to send; open thread refetches on activity |
 | Call | Join / mute / camera / leave; SFU + roster + cap 16; remote video autoplays |
 | Profile | Bio, status, 36 avatars or upload, theme, visibility |
 | Notify | Opt-in desktop alerts while another tab is focused |
@@ -141,7 +141,7 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 - [x] In-repo wiki under `docs/` (native GitHub Wiki still locked)
 - [x] Unit-test mesh-media helpers (full `RTCPeerConnection` still e2e-only)
 - [x] Nest SFU: one upload per caller, werift forward, cap 16
-- [x] Files/folders without a size cap (one Attach control); opposite-side bubbles; fuzzy people search; richer profile + prefs
+- [x] Files/folders without a size cap (one Attach control); Slack-like grouped thread; fuzzy people search; richer profile + prefs
 - [ ] Release: merge `develop` into `main` so production matches history, inbox, and SFU calls
 - [ ] Production shape: Nest serves `client/dist`, HTTPS, secure cookies, required `SESSION_SECRET`
 - [ ] Documented TURN path plus a clearer Connecting-peers failure

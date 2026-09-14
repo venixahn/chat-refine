@@ -36,11 +36,11 @@ export const AttachmentControl = (props: {
       ref={(node) => {
         root = node;
       }}
-      class="relative self-end"
+      class="relative"
     >
       <button
         type="button"
-        class="rounded-full border border-[var(--line)] px-4 py-2 text-sm"
+        class="rounded-md px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--text)]"
         aria-expanded={open()}
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
