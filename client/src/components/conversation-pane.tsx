@@ -1,5 +1,5 @@
 import { A } from "@solidjs/router";
-import { For, Show, type JSX } from "solid-js";
+import { Index, Show, type JSX } from "solid-js";
 import type { CallPresence, ChatMessage } from "@chat-refine/shared";
 import { CallStage, joinCallLabel } from "./call-stage.tsx";
 import type { ChatSession } from "../lib/chat-session.ts";
@@ -305,7 +305,7 @@ export const ConversationPane = (props: PaneProps): JSX.Element => {
         ref={props.setScroller}
         class="flex flex-1 flex-col overflow-y-auto px-5 py-4"
       >
-        <For
+        <Index
           each={props.messages}
           fallback={
             <li class="m-auto max-w-md text-sm text-[var(--muted)]">
@@ -319,23 +319,23 @@ export const ConversationPane = (props: PaneProps): JSX.Element => {
         >
           {(item, index) => (
             <MessageRow
-              item={item}
-              name={props.names.get(item.fromUserId) ?? "Peer"}
-              avatarUrl={props.avatars.get(item.fromUserId)}
-              grouped={continuesBurst(props.messages[index() - 1], item)}
-              mine={item.fromUserId === props.selfId}
-              unreadStart={item.clientMessageId === unreadId()}
-              hit={matchesQuery(props.search, item)}
-              editing={props.editingId === item.clientMessageId}
+              item={item()}
+              name={props.names.get(item().fromUserId) ?? "Peer"}
+              avatarUrl={props.avatars.get(item().fromUserId)}
+              grouped={continuesBurst(props.messages[index - 1], item())}
+              mine={item().fromUserId === props.selfId}
+              unreadStart={item().clientMessageId === unreadId()}
+              hit={matchesQuery(props.search, item())}
+              editing={props.editingId === item().clientMessageId}
               editDraft={props.editDraft}
               onEditDraft={props.onEditDraft}
-              onStartEdit={() => props.onStartEdit(item)}
+              onStartEdit={() => props.onStartEdit(item())}
               onSaveEdit={props.onSaveEdit}
               onCancelEdit={props.onCancelEdit}
-              onDelete={() => props.onDelete(item)}
+              onDelete={() => props.onDelete(item())}
             />
           )}
-        </For>
+        </Index>
       </ol>
       <Show when={props.typing.length > 0}>
         <p class="px-6 pb-1 text-xs text-[var(--muted)]">
