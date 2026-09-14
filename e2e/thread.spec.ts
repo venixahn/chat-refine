@@ -30,7 +30,7 @@ test("an open thread jumps to unread, searches, and edits", async ({
   await bob.getByLabel("Search messages").fill(body);
   await expect(bob.getByRole("main").getByText(body)).toBeVisible();
 
-  await ada.getByRole("button", { name: "Edit" }).click();
+  await ada.getByRole("main").getByRole("button", { name: "Edit", exact: true }).click();
   const edited = `${body}-fixed`;
   await ada.getByLabel("Edit message").fill(edited);
   await ada.getByRole("button", { name: "Save" }).click();
