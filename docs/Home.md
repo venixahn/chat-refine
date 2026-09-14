@@ -8,7 +8,7 @@ This folder is the project wiki. GitHub Wiki is not available on a private free-
 
 ## Pages
 
-- [Setup](Setup.md) — install, run, test
+- [Setup](Setup.md) — install, run, test, coturn for hard NAT
 - [Architecture](Architecture.md) — system diagram, SFU, P2P text, history
 - [Features](Features.md) — what works today, including attachments, profile, and search
 - [Project-status](Project-status.md) — snapshot of what ships, gaps, and next work

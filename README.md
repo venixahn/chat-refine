@@ -10,7 +10,7 @@ Working today:
 - Room directory, group create/join, and 1:1 DMs
 - Authenticated signaling WebSocket (`GET /api/signal/ticket`, then `/ws`)
 - Authenticated ICE list (`GET /api/ice`) — Google STUN by default, or `ICE_SERVERS`
-- P2P text over WebRTC data channels, plus server-stored history (and local cache). An open thread also refetches history on activity so room text still appears if the mesh is down. Jump to unread, search, edit, and delete in the thread.
+- P2P text over WebRTC data channels, plus server-stored history (and local cache). An open thread also refetches history on activity so room text still appears if the mesh is down. Jump to unread, search, edit, and delete in the thread. The channel header shows who is in the room.
 - Unread counts and last-message previews in the room list. Mute a channel to drop the badge and desktop alerts. Channels can have a topic. Private channels are invite-only.
 - Attachments: files or a folder from one Attach control (any type/size; stored on disk, not in `db.json`)
 - Desktop notifications when a peer messages you (opt-in)
@@ -21,7 +21,7 @@ Working today:
 - Stacked mobile layout (rooms list, then thread with a Rooms back link)
 - Unit, API, coverage, and Playwright auth, chat, call, inbox, and mobile e2e
 
-A/V cap is **16 peers** (`AV_MESH_CAP`). Each caller sends media to Nest; Nest forwards it (SFU). Text-only rooms can be larger. Peers across the internet use public Google STUN by default. Set `ICE_SERVERS=[]` for LAN-only host candidates, or add your own TURN for hard NAT.
+A/V cap is **16 peers** (`AV_MESH_CAP`). Each caller sends media to Nest; Nest forwards it (SFU). Text-only rooms can be larger. Peers across the internet use public Google STUN by default. Set `ICE_SERVERS=[]` for LAN-only host candidates, or run coturn and point `ICE_SERVERS` at it for hard NAT.
 
 ## Stack
 
@@ -90,13 +90,32 @@ Signed-in clients load ICE servers from `GET /api/ice` and pass them into each `
 
 **LAN-only:** `ICE_SERVERS=[]` — host candidates, no STUN.
 
-**Hard NAT:** add a TURN server you run (for example [coturn](https://github.com/coturn/coturn)):
+**Hard NAT:** this repo does not ship a TURN daemon. The path we run is [coturn](https://github.com/coturn/coturn) in Docker, then `ICE_SERVERS` pointing at that host. Use a LAN or public IP both browsers can reach (not `127.0.0.1`). Docker Desktop on Windows cannot use `--network=host`.
 
 ```bash
-ICE_SERVERS=[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example:3478","username":"chat","credential":"secret"}]
+HOST_IP=192.168.1.10
+
+docker run --rm --name chat-refine-turn \
+  -p 3478:3478 \
+  -p 3478:3478/udp \
+  -p 49160-49200:49160-49200/udp \
+  coturn/coturn:4.6.3 \
+  -n --log-file=stdout \
+  --listening-port=3478 \
+  --external-ip="$HOST_IP" \
+  --realm=chat-refine \
+  --user=chat:change-this-turn-secret \
+  --fingerprint --no-cli \
+  --min-port=49160 --max-port=49200
 ```
 
-Keep TURN credentials on this machine.
+```bash
+ICE_SERVERS=[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:192.168.1.10:3478","username":"chat","credential":"change-this-turn-secret"}]
+```
+
+Keep TURN credentials on this machine. Restart `npm run dev` after changing `.env`.
+
+The thread keeps the status **Connecting peers…** (Playwright matches that string). After about eight seconds with no data channel, a second line asks the host to add a relay.
 
 Publishing the app is separate from ICE. Both browsers must reach this host for signup and `/ws`:
 
@@ -104,7 +123,7 @@ Publishing the app is separate from ICE. Both browsers must reach this host for 
 2. Open the app as `https://<this-machine>:5173` on the LAN (accept the cert), or port-forward / tunnel 5173 (and 3000, or put both behind one reverse proxy).
 3. Camera and microphone work on that Vite HTTPS origin. A public tunnel such as Cloudflare Tunnel or ngrok is still useful if you want a trusted certificate.
 
-If peers never leave “Connecting peers…”, STUN could not punch the NAT — add TURN.
+If peers never leave “Connecting peers…”, STUN could not punch the NAT — run coturn as above.
 
 ## Git Flow
 

@@ -17,6 +17,12 @@ test("an open thread jumps to unread, searches, and edits", async ({
 
   const roomName = `thrd${Date.now()}`.slice(0, 20);
   await sharePublicRoom(ada, bob, roomName);
+  await expect(ada.getByLabel(`${adaUser.displayName} here`)).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(ada.getByLabel(`${bobUser.displayName} here`)).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(ada.getByText(/Waiting for peers|Connected ·/)).toBeVisible({
     timeout: 20_000,
   });

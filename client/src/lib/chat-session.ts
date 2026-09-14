@@ -2,6 +2,7 @@ import {
   applyCallState,
   avPeerCount,
   canAddAvPeer,
+  hasRelay,
   iceConfigSchema,
   newId,
   previewOf,
@@ -17,6 +18,7 @@ import type { PublicProfile } from "./auth-api.ts";
 import { captureLocal } from "./capture.ts";
 import { loadHistory, persistMessage } from "./local-history.ts";
 import { createMesh, stubPeer, type Mesh } from "./mesh.ts";
+import { meshStatus, stallHint } from "./mesh-status.ts";
 import { createSfuLink } from "./sfu-link.ts";
 import {
   listIce,
@@ -89,6 +91,7 @@ export const startChatSession = async (input: {
   onPeers: (peers: SignalingPeer[]) => void;
   onTyping: (names: string[]) => void;
   onStatus: (status: string) => void;
+  onHint?: (hint: string | null) => void;
   onLocalStream: (stream: MediaStream | null) => void;
   onRemoteStreams: (streams: RemoteMedia[]) => void;
   onCallRoster: (roster: CallPresence[]) => void;
@@ -123,6 +126,7 @@ export const startChatSession = async (input: {
   }
   const parsedIce = ice.ok ? iceConfigSchema.safeParse(ice.data) : null;
   const iceServers = parsedIce?.success ? parsedIce.data.iceServers : [];
+  const relay = hasRelay(iceServers);
 
   const signal = connectSignal(ticket.data.ticket);
   await signal.ready;
@@ -250,14 +254,8 @@ export const startChatSession = async (input: {
       onPeerEvent(fromUserId, event);
     },
     onState: () => {
-      const open = mesh.openCount();
-      input.onStatus(
-        open === 0
-          ? roster.size === 0
-            ? "Waiting for peers"
-            : "Connecting peers…"
-          : `Connected · ${open} peer${open === 1 ? "" : "s"}`,
-      );
+      input.onStatus(meshStatus(mesh.openCount(), roster.size));
+      input.onHint?.(mesh.stalled() ? stallHint(relay) : null);
     },
   });
 
@@ -300,9 +298,8 @@ export const startChatSession = async (input: {
     callRoster = event.call;
     publishPeers();
     publishCall();
-    input.onStatus(
-      event.peers.length === 0 ? "Waiting for peers" : "Connecting peers…",
-    );
+    input.onStatus(meshStatus(mesh.openCount(), roster.size));
+    input.onHint?.(null);
     void mergeRemoteHistory(input.conversationId, apply);
   };
 
@@ -322,6 +319,7 @@ export const startChatSession = async (input: {
     "peer-joined": (event) => {
       roster.set(event.peer.userId, event.peer);
       publishPeers();
+      input.onStatus(meshStatus(mesh.openCount(), roster.size));
       void mesh.offerTo(event.peer);
     },
     "peer-left": (event) => {

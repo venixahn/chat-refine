@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ICE_SERVERS,
+  hasRelay,
   iceConfigSchema,
   parseIceServers,
 } from "./ice.ts";
@@ -57,6 +58,19 @@ describe("parseIceServers", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("hasRelay", () => {
+  it("detects a TURN url among STUN servers", () => {
+    expect(hasRelay(DEFAULT_ICE_SERVERS)).toBe(false);
+    expect(hasRelay([])).toBe(false);
+    expect(
+      hasRelay([
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: ["turn:turn.lan:3478", "turns:turn.lan:5349"] },
+      ]),
+    ).toBe(true);
   });
 });
 

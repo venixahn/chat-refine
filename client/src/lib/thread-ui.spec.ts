@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { continuesBurst, firstUnreadId, formatClock, initialsOf, matchesQuery } from "./thread-ui.ts";
+import {
+  continuesBurst,
+  firstUnreadId,
+  formatClock,
+  initialsOf,
+  matchesQuery,
+  presenceOf,
+} from "./thread-ui.ts";
 
 describe("formatClock", () => {
   it("shows a clock for a message from the last minute", () => {
@@ -74,6 +81,39 @@ describe("firstUnreadId", () => {
         "2026-09-14T20:00:00.000Z",
       ),
     ).toBe("msg-bob");
+  });
+});
+
+describe("presenceOf", () => {
+  const ada = { id: "ada", displayName: "Ada", avatarUrl: "/ada.png" };
+  const bob = { id: "bob", displayName: "Bob", avatarUrl: null };
+  const cal = { id: "cal", displayName: "Cal" };
+
+  it("marks self and signaling peers as here, and sorts here first", () => {
+    expect(
+      presenceOf(
+        [bob, cal, ada],
+        [{ userId: "bob", displayName: "Bob" }],
+        ada,
+      ),
+    ).toEqual([
+      { id: "ada", name: "Ada", avatarUrl: "/ada.png", here: true },
+      { id: "bob", name: "Bob", avatarUrl: null, here: true },
+      { id: "cal", name: "Cal", avatarUrl: null, here: false },
+    ]);
+  });
+
+  it("adds a signaling peer who is not in the member snapshot yet", () => {
+    expect(
+      presenceOf(
+        [ada],
+        [{ userId: "bob", displayName: "Bob" }],
+        ada,
+      ),
+    ).toEqual([
+      { id: "ada", name: "Ada", avatarUrl: "/ada.png", here: true },
+      { id: "bob", name: "Bob", avatarUrl: null, here: true },
+    ]);
   });
 });
 

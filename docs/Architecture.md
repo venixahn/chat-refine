@@ -66,7 +66,8 @@ Solid edges are the control plane, persisted history, and the SFU upload. Dashed
 | Live text (open thread, mesh down) | Nest history refetch on activity |
 | Call audio / video | Yes — Nest SFU forwards RTP; each caller uploads once |
 | SDP / ICE / call roster / SFU signaling | Yes (`/ws`) |
-| ICE servers (`GET /api/ice`) | Yes — used by the text mesh and each SFU uplink |
+| ICE servers (`GET /api/ice`) | Yes — used by the text mesh and each SFU uplink. Default is Google STUN; add TURN in `ICE_SERVERS` (coturn recipe in [Setup](Setup.md)). |
+| Who is in the room | Signaling roster + room members; header avatars, no extra protocol copy |
 
 Sending a message POSTs it for history, then fans it out over the data channel when a peer is online. An open thread also refetches that history when signaling join lands and when it sees an activity frame. Inbox activity frames update unread and last-message without an open thread.
 

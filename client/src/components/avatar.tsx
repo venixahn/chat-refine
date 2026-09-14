@@ -4,10 +4,17 @@ import { initialsOf } from "../lib/thread-ui.ts";
 export const Avatar = (props: {
   name: string;
   src?: string | null;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md";
 }) => {
-  const box = () =>
-    props.size === "md" ? "h-9 w-9 text-sm" : "h-8 w-8 text-xs";
+  const box = () => {
+    if (props.size === "md") {
+      return "h-9 w-9 text-sm";
+    }
+    if (props.size === "xs") {
+      return "h-6 w-6 text-[10px]";
+    }
+    return "h-8 w-8 text-xs";
+  };
   return (
     <Show
       when={props.src}

@@ -45,10 +45,10 @@ test("two members join a P2P call", async ({ browser }) => {
 
   await joinCall(ada);
   await joinCall(bob);
-  await expect(ada.getByLabel(bobUser.displayName)).toBeVisible({
+  await expect(ada.getByLabel(bobUser.displayName, { exact: true })).toBeVisible({
     timeout: 20_000,
   });
-  await expect(bob.getByLabel(adaUser.displayName)).toBeVisible({
+  await expect(bob.getByLabel(adaUser.displayName, { exact: true })).toBeVisible({
     timeout: 20_000,
   });
   await expect
