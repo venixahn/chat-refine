@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { Effect } from "effect";
-import { filter, map } from "fp-ts/Array";
-import { pipe } from "fp-ts/function";
 import type { ChatMessage, PostMessageInput } from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
 import { append, replaceWhere, upsertWhere } from "../db/collections.ts";
@@ -53,12 +51,13 @@ export class MessagesService {
     if (!this.rooms.isMember(userId, conversationId)) {
       return Effect.fail(new NotAMember());
     }
-    const rows = pipe(
-      this.db.snapshot().messages,
-      filter((item) => item.conversationId === conversationId),
-      (items) => items.slice().sort(byTimeThenId).slice(-200),
-      map(toPublicMessage),
-    );
+    const rows = this.db
+      .snapshot()
+      .messages.filter((item) => item.conversationId === conversationId)
+      .slice()
+      .sort(byTimeThenId)
+      .slice(-200)
+      .map(toPublicMessage);
     return Effect.succeed(rows);
   }
 
