@@ -54,9 +54,6 @@ export const MessageRow = (props: {
           </Show>
         </div>
       </Show>
-      <Show when={props.grouped && props.item.editedAt && !props.item.deletedAt}>
-        <span class="text-xs text-[var(--muted)]">(edited)</span>
-      </Show>
       <Show
         when={props.editing}
         fallback={

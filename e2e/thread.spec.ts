@@ -35,7 +35,7 @@ test("an open thread jumps to unread, searches, and edits", async ({
   await ada.getByLabel("Edit message").fill(edited);
   await ada.getByRole("button", { name: "Save" }).click();
   await expect(ada.getByRole("main").getByText(edited)).toBeVisible();
-  await expect(ada.getByText("(edited)")).toBeVisible();
+  await expect(ada.getByRole("main").getByText("(edited)").first()).toBeVisible();
 
   await adaContext.close();
   await bobContext.close();
