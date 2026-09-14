@@ -15,7 +15,7 @@ import { Subject } from "rxjs";
 import { debounceTime } from "rxjs/operators";
 import type { PublicProfile } from "./auth-api.ts";
 import { captureLocal } from "./capture.ts";
-import { loadHistory, persistAll, persistMessage } from "./local-history.ts";
+import { loadHistory, persistMessage } from "./local-history.ts";
 import { createMesh, stubPeer, type Mesh } from "./mesh.ts";
 import { createSfuLink } from "./sfu-link.ts";
 import {
@@ -28,8 +28,7 @@ import {
   deleteMessage,
   signalTicket,
 } from "./rooms-api.ts";
-import { meshStatus } from "./mesh-status.ts";
-import { liveTypers, rememberPeers, remoteTiles } from "./session-state.ts";
+import { connectSignal } from "./signal-client.ts";
 
 export type RemoteMedia = {
   userId: string;
@@ -112,7 +111,9 @@ export const startChatSession = async (input: {
     listMessages(input.conversationId),
   ]);
   if (remote.ok) {
-    messages = persistAll(input.conversationId, remote.data);
+    for (const item of remote.data) {
+      messages = persistMessage(input.conversationId, item);
+    }
     input.onMessages(messages);
     void markRead(input.conversationId);
   }
@@ -131,7 +132,9 @@ export const startChatSession = async (input: {
   };
 
   const publishRemote = () => {
-    input.onRemoteStreams(remoteTiles(remoteByUser));
+    input.onRemoteStreams(
+      [...remoteByUser.entries()].map(([userId, stream]) => ({ userId, stream })),
+    );
   };
 
   const publishCall = () => {
@@ -139,10 +142,19 @@ export const startChatSession = async (input: {
   };
 
   const refreshTyping = () => {
-    const live = liveTypers(typingUntil, roster, Date.now());
-    typingUntil.clear();
-    live.next.forEach((expires, userId) => typingUntil.set(userId, expires));
-    input.onTyping(live.names);
+    const now = Date.now();
+    const names: string[] = [];
+    for (const [userId, expires] of typingUntil) {
+      if (expires <= now) {
+        typingUntil.delete(userId);
+        continue;
+      }
+      const peer = roster.get(userId);
+      if (peer) {
+        names.push(peer.displayName);
+      }
+    }
+    input.onTyping(names);
   };
 
   const apply = (incoming: ChatMessage) => {
@@ -238,7 +250,14 @@ export const startChatSession = async (input: {
       onPeerEvent(fromUserId, event);
     },
     onState: () => {
-      input.onStatus(meshStatus(mesh.openCount(), roster.size));
+      const open = mesh.openCount();
+      input.onStatus(
+        open === 0
+          ? roster.size === 0
+            ? "Waiting for peers"
+            : "Connecting peers…"
+          : `Connected · ${open} peer${open === 1 ? "" : "s"}`,
+      );
     },
   });
 
@@ -275,11 +294,15 @@ export const startChatSession = async (input: {
   };
 
   const onJoined = (event: Extract<SignalingEvent, { type: "joined" }>) => {
-    rememberPeers(roster, event.peers);
+    for (const peer of event.peers) {
+      roster.set(peer.userId, peer);
+    }
     callRoster = event.call;
     publishPeers();
     publishCall();
-    input.onStatus(meshStatus(0, event.peers.length));
+    input.onStatus(
+      event.peers.length === 0 ? "Waiting for peers" : "Connecting peers…",
+    );
     void mergeRemoteHistory(input.conversationId, apply);
   };
 
