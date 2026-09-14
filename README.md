@@ -10,8 +10,8 @@ Working today:
 - Room directory, group create/join, and 1:1 DMs
 - Authenticated signaling WebSocket (`GET /api/signal/ticket`, then `/ws`)
 - Authenticated ICE list (`GET /api/ice`) — Google STUN by default, or `ICE_SERVERS`
-- P2P text over WebRTC data channels, plus server-stored history (and local cache). An open thread also refetches history on activity so room text still appears if the mesh is down.
-- Unread counts and last-message previews in the room list
+- P2P text over WebRTC data channels, plus server-stored history (and local cache). An open thread also refetches history on activity so room text still appears if the mesh is down. Jump to unread, search, edit, and delete in the thread.
+- Unread counts and last-message previews in the room list. Mute a channel to drop the badge and desktop alerts. Channels can have a topic. Private channels are invite-only.
 - Attachments: files or a folder from one Attach control (any type/size; stored on disk, not in `db.json`)
 - Desktop notifications when a peer messages you (opt-in)
 - Profile: display name, bio, status, catalog or uploaded avatar, theme, search visibility
@@ -74,7 +74,7 @@ Production shape (later): `npm run build`, then Nest serves `client/dist` plus `
 
 ```bash
 npm test          # Vitest + V8 coverage (shared + server)
-npm run test:e2e  # Playwright (auth, chat, call, inbox, mobile)
+npm run test:e2e  # Playwright (auth, chat, call, inbox, thread, mobile)
 npm run lint      # ESLint
 ```
 

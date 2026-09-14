@@ -13,6 +13,7 @@ import {
 import { DbService } from "../db/db.service.ts";
 import {
   toPublicProfile,
+  isPublicGroup,
   type Profile,
   type PublicProfile,
 } from "../db/schema.ts";
@@ -61,12 +62,12 @@ export class AuthService {
               throw new UsernameTaken();
             }
             data.profiles.push(profile);
-            for (const room of data.conversations.filter(
-              (conversation) => conversation.kind === "group",
-            )) {
+            for (const room of data.conversations.filter(isPublicGroup)) {
               data.conversationMembers.push({
                 conversationId: room.id,
                 userId: profile.id,
+                role: "member",
+                muted: false,
               });
             }
             return toPublicProfile(profile);

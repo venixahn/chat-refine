@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   createGroupSchema,
   dmPairKey,
+  editMessageSchema,
+  muteRoomSchema,
   openDmSchema,
+  patchRoomSchema,
   peopleQuerySchema,
   postMessageSchema,
 } from "./rooms.ts";
@@ -20,6 +23,9 @@ describe("dmPairKey", () => {
 describe("createGroupSchema", () => {
   it("accepts a named group", () => {
     expect(createGroupSchema.safeParse({ name: "standup" }).success).toBe(true);
+    expect(
+      createGroupSchema.safeParse({ name: "secrets", private: true }).success,
+    ).toBe(true);
   });
 
   it("rejects an empty name", () => {
@@ -70,6 +76,17 @@ describe("peopleQuerySchema", () => {
     expect(peopleQuerySchema.safeParse({ q: "x".repeat(65) }).success).toBe(
       false,
     );
+  });
+});
+
+describe("room patch schemas", () => {
+  it("accepts topic, mute, and edit bodies", () => {
+    expect(patchRoomSchema.safeParse({ topic: "Standup notes" }).success).toBe(
+      true,
+    );
+    expect(muteRoomSchema.safeParse({ muted: true }).success).toBe(true);
+    expect(editMessageSchema.safeParse({ body: "fixed" }).success).toBe(true);
+    expect(editMessageSchema.safeParse({ body: "   " }).success).toBe(false);
   });
 });
 

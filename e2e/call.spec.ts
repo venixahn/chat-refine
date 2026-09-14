@@ -54,8 +54,8 @@ test("two members join a P2P call", async ({ browser }) => {
     .poll(() => remotePlaying(bob, adaUser.displayName), { timeout: 20_000 })
     .toBe(true);
 
-  await ada.getByRole("button", { name: "Mute" }).click();
-  await expect(ada.getByRole("button", { name: "Unmute" })).toBeVisible();
+  await ada.getByRole("button", { name: "Mute", exact: true }).click();
+  await expect(ada.getByRole("button", { name: "Unmute", exact: true })).toBeVisible();
   await ada.getByRole("button", { name: "Leave call" }).click();
   await expect(ada.getByRole("button", { name: "Join call" })).toBeVisible();
 

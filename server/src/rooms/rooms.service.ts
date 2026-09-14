@@ -9,17 +9,21 @@ import {
   rankPeople,
   type ChatMessage,
   type CreateGroupInput,
+  type MuteRoomInput,
   type OpenDmInput,
+  type PatchRoomInput,
 } from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
 import {
   toPublicProfile,
+  isPublicGroup,
   type Conversation,
+  type ConversationMember,
   type DbSchema,
   type PublicProfile,
   type StoredMessage,
 } from "../db/schema.ts";
-import { CannotDmSelf, NotAMember, UserNotFound } from "./rooms.errors.ts";
+import { CannotDmSelf, NotAGroup, NotAMember, UserNotFound } from "./rooms.errors.ts";
 
 export type RoomView = {
   id: string;
@@ -27,6 +31,11 @@ export type RoomView = {
   slug?: string;
   name?: string;
   title: string;
+  topic: string;
+  visibility: "public" | "private";
+  role: "owner" | "member";
+  muted: boolean;
+  lastReadAt: string;
   createdAt: string;
   members: PublicProfile[];
   lastMessage?: ChatMessage;
@@ -40,15 +49,21 @@ export type OpenedDm = {
   created: boolean;
 };
 
+const membershipOf = (
+  members: ConversationMember[],
+  conversationId: string,
+  userId: string,
+): ConversationMember | undefined =>
+  members.find(
+    (member) =>
+      member.conversationId === conversationId && member.userId === userId,
+  );
+
 const isMemberOf = (
   members: DbSchema["conversationMembers"],
   conversationId: string,
   userId: string,
-) =>
-  members.some(
-    (member) =>
-      member.conversationId === conversationId && member.userId === userId,
-  );
+) => Boolean(membershipOf(members, conversationId, userId));
 
 const shareDm = (data: DbSchema, left: string, right: string): boolean =>
   data.conversations.some((room) => {
@@ -103,15 +118,18 @@ export const toPublicMessage = (stored: StoredMessage): ChatMessage => ({
   clientMessageId: stored.clientMessageId,
   conversationId: stored.conversationId,
   fromUserId: stored.fromUserId,
-  body: stored.body,
+  body: stored.deletedAt ? "" : stored.body,
   createdAt: stored.createdAt,
-  attachment: stored.attachment
-    ? {
-        name: stored.attachment.name,
-        mime: stored.attachment.mime,
-        size: stored.attachment.size,
-      }
-    : undefined,
+  editedAt: stored.editedAt,
+  deletedAt: stored.deletedAt,
+  attachment:
+    stored.deletedAt || !stored.attachment
+      ? undefined
+      : {
+          name: stored.attachment.name,
+          mime: stored.attachment.mime,
+          size: stored.attachment.size,
+        },
 });
 
 const lastStored = (
@@ -119,7 +137,7 @@ const lastStored = (
   data: DbSchema,
 ): StoredMessage | undefined =>
   data.messages
-    .filter((item) => item.conversationId === conversationId)
+    .filter((item) => item.conversationId === conversationId && !item.deletedAt)
     .reduce<StoredMessage | undefined>((latest, item) => {
       if (!latest) {
         return item;
@@ -152,6 +170,7 @@ const unreadCountOf = (
     (item) =>
       item.conversationId === conversationId &&
       item.fromUserId !== userId &&
+      !item.deletedAt &&
       item.createdAt > since,
   ).length;
 };
@@ -163,12 +182,18 @@ const toRoomView = (
 ): RoomView => {
   const members = membersOf(room, data);
   const last = lastStored(room.id, data);
+  const membership = membershipOf(data.conversationMembers, room.id, viewerId);
   return {
     id: room.id,
     kind: room.kind,
     slug: room.slug,
     name: room.name,
     title: roomTitle(room, members, viewerId),
+    topic: room.topic ?? "",
+    visibility: room.visibility ?? (room.kind === "dm" ? "private" : "public"),
+    role: membership?.role ?? "member",
+    muted: Boolean(membership?.muted),
+    lastReadAt: readSince(viewerId, room.id, data),
     createdAt: room.createdAt,
     members,
     lastMessage: last ? toPublicMessage(last) : undefined,
@@ -215,7 +240,7 @@ export class RoomsService {
   listDirectory(userId: string): DirectoryRoom[] {
     const data = this.db.snapshot();
     return data.conversations
-      .filter((room) => room.kind === "group")
+      .filter(isPublicGroup)
       .map((room) => ({
         ...toRoomView(room, userId, data),
         joined: isMemberOf(data.conversationMembers, room.id, userId),
@@ -247,12 +272,16 @@ export class RoomsService {
             kind: "group",
             slug: input.name.toLowerCase().replaceAll(" ", "-"),
             name: input.name,
+            topic: "",
+            visibility: input.private ? "private" : "public",
             createdAt: new Date().toISOString(),
           };
           data.conversations.push(room);
           data.conversationMembers.push({
             conversationId: room.id,
             userId,
+            role: "owner",
+            muted: false,
           });
           return toRoomView(room, userId, data);
         }),
@@ -266,14 +295,19 @@ export class RoomsService {
       db.snapshot().conversations,
       findFirst((item) => item.id === conversationId && item.kind === "group"),
     );
-    if (isNone(room)) {
+    if (isNone(room) || room.value.visibility === "private") {
       return Effect.fail(new NotAMember());
     }
     return Effect.tryPromise({
       try: () =>
         db.update((current) => {
           if (!isMemberOf(current.conversationMembers, conversationId, userId)) {
-            current.conversationMembers.push({ conversationId, userId });
+            current.conversationMembers.push({
+              conversationId,
+              userId,
+              role: "member",
+              muted: false,
+            });
           }
           return toRoomView(room.value, userId, current);
         }),
@@ -313,16 +347,112 @@ export class RoomsService {
             kind: "dm",
             slug: key,
             name: peer.value.username,
+            topic: "",
+            visibility: "private",
             createdAt: new Date().toISOString(),
           };
           data.conversations.push(room);
           data.conversationMembers.push(
-            { conversationId: room.id, userId },
-            { conversationId: room.id, userId: peer.value.id },
+            { conversationId: room.id, userId, role: "member", muted: false },
+            {
+              conversationId: room.id,
+              userId: peer.value.id,
+              role: "member",
+              muted: false,
+            },
           );
           return { room: toRoomView(room, userId, data), created: true };
         }),
       catch: (error) => new Error(String(error)),
+    });
+  }
+
+  invite(userId: string, conversationId: string, input: OpenDmInput) {
+    const db = this.db;
+    const snapshot = db.snapshot();
+    const room = pipe(
+      snapshot.conversations,
+      findFirst((item) => item.id === conversationId),
+    );
+    if (isNone(room) || !isMemberOf(snapshot.conversationMembers, conversationId, userId)) {
+      return Effect.fail(new NotAMember());
+    }
+    if (room.value.kind !== "group") {
+      return Effect.fail(new NotAGroup());
+    }
+    const peer = pipe(
+      snapshot.profiles,
+      findFirst((profile) =>
+        "userId" in input
+          ? profile.id === input.userId
+          : profile.username === input.username,
+      ),
+    );
+    if (isNone(peer)) {
+      return Effect.fail(new UserNotFound());
+    }
+    if (peer.value.id === userId) {
+      return Effect.fail(new CannotDmSelf());
+    }
+    return Effect.tryPromise({
+      try: () =>
+        db.update((current) => {
+          if (!isMemberOf(current.conversationMembers, conversationId, peer.value.id)) {
+            current.conversationMembers.push({
+              conversationId,
+              userId: peer.value.id,
+              role: "member",
+              muted: false,
+            });
+          }
+          return toRoomView(room.value, userId, current);
+        }),
+      catch: (error) => new Error(String(error)),
+    });
+  }
+
+  patchTopic(userId: string, conversationId: string, input: PatchRoomInput) {
+    const db = this.db;
+    if (!this.isMember(userId, conversationId)) {
+      return Effect.fail(new NotAMember());
+    }
+    return Effect.tryPromise({
+      try: () =>
+        db.update((data) => {
+          const room = data.conversations.find((item) => item.id === conversationId);
+          if (!room || room.kind !== "group") {
+            throw new NotAGroup();
+          }
+          room.topic = input.topic.trim();
+          return toRoomView(room, userId, data);
+        }),
+      catch: (error) =>
+        error instanceof NotAGroup ? error : new Error(String(error)),
+    });
+  }
+
+  setMuted(userId: string, conversationId: string, input: MuteRoomInput) {
+    const db = this.db;
+    if (!this.isMember(userId, conversationId)) {
+      return Effect.fail(new NotAMember());
+    }
+    return Effect.tryPromise({
+      try: () =>
+        db.update((data) => {
+          const membership = membershipOf(
+            data.conversationMembers,
+            conversationId,
+            userId,
+          );
+          const room = data.conversations.find((item) => item.id === conversationId);
+          if (!membership || !room) {
+            throw new NotAMember();
+          }
+          membership.muted = input.muted;
+          return toRoomView(room, userId, data);
+        }),
+      catch: (error) =>
+        error instanceof NotAMember ? error : new Error(String(error)),
     });
   }
 

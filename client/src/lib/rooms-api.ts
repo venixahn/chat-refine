@@ -7,6 +7,11 @@ export type RoomView = {
   slug?: string;
   name?: string;
   title: string;
+  topic: string;
+  visibility: "public" | "private";
+  role: "owner" | "member";
+  muted: boolean;
+  lastReadAt: string;
   createdAt: string;
   members: PublicProfile[];
   lastMessage?: ChatMessage;
@@ -21,10 +26,10 @@ export const listDirectory = () => request<DirectoryRoom[]>("/api/rooms/director
 
 export const getRoom = (id: string) => request<RoomView>(`/api/rooms/${id}`);
 
-export const createGroup = (name: string) =>
+export const createGroup = (name: string, asPrivate = false) =>
   request<RoomView>("/api/rooms", {
     method: "POST",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, private: asPrivate }),
   });
 
 export const joinGroup = (id: string) =>
@@ -72,6 +77,38 @@ export const postMessageFile = (
 
 export const markRead = (id: string) =>
   request<{ ok: true }>(`/api/rooms/${id}/read`, { method: "POST" });
+
+export const editMessage = (id: string, messageId: string, body: string) =>
+  request<ChatMessage>(`/api/rooms/${id}/messages/${messageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ body }),
+  });
+
+export const deleteMessage = (id: string, messageId: string) =>
+  request<ChatMessage>(`/api/rooms/${id}/messages/${messageId}`, {
+    method: "DELETE",
+  });
+
+export const inviteToRoom = (
+  id: string,
+  target: { username: string } | { userId: string },
+) =>
+  request<RoomView>(`/api/rooms/${id}/invite`, {
+    method: "POST",
+    body: JSON.stringify(target),
+  });
+
+export const muteRoom = (id: string, muted: boolean) =>
+  request<RoomView>(`/api/rooms/${id}/mute`, {
+    method: "POST",
+    body: JSON.stringify({ muted }),
+  });
+
+export const patchRoomTopic = (id: string, topic: string) =>
+  request<RoomView>(`/api/rooms/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ topic }),
+  });
 
 export const messageFileUrl = (roomId: string, messageId: string) =>
   `/api/rooms/${roomId}/messages/${messageId}/file`;

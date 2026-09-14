@@ -1,7 +1,5 @@
-import { findFirst } from "fp-ts/Array";
 import { fromCompare } from "fp-ts/Ord";
 import { sort } from "fp-ts/Array";
-import { isSome } from "fp-ts/Option";
 import { pipe } from "fp-ts/function";
 
 export type MessageAttachment = {
@@ -16,10 +14,15 @@ export type ChatMessage = {
   body: string;
   createdAt: string;
   fromUserId: string;
+  editedAt?: string;
+  deletedAt?: string;
   attachment?: MessageAttachment;
 };
 
 export const previewOf = (message: ChatMessage): string => {
+  if (message.deletedAt) {
+    return "This message was deleted";
+  }
   const caption = message.body.trim();
   if (caption) {
     return caption;
@@ -50,15 +53,8 @@ export const upsertMessage = (
   messages: readonly ChatMessage[],
   incoming: ChatMessage,
 ): ChatMessage[] => {
-  if (
-    isSome(
-      pipe(
-        [...messages],
-        findFirst((item) => item.clientMessageId === incoming.clientMessageId),
-      ),
-    )
-  ) {
-    return [...messages];
-  }
-  return pipe([...messages, incoming], sort(messageOrd));
+  const without = messages.filter(
+    (item) => item.clientMessageId !== incoming.clientMessageId,
+  );
+  return pipe([...without, incoming], sort(messageOrd));
 };

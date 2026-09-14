@@ -20,6 +20,12 @@ describe("previewOf", () => {
         attachment: { name: "notes.pdf", mime: "application/pdf", size: 12 },
       }),
     ).toBe("notes.pdf");
+    expect(
+      previewOf({
+        ...line("msg-cccc", "2026-09-12T00:00:01.000Z", "gone"),
+        deletedAt: "2026-09-12T00:00:02.000Z",
+      }),
+    ).toBe("This message was deleted");
   });
 });
 
@@ -33,10 +39,10 @@ describe("upsertMessage", () => {
     ]);
   });
 
-  it("ignores a duplicate clientMessageId", () => {
+  it("replaces a matching clientMessageId", () => {
     const existing = line("msg-aaaa", "2026-09-12T00:00:01.000Z", "first");
-    const dup = line("msg-aaaa", "2026-09-12T00:00:09.000Z", "again");
-    expect(upsertMessage([existing], dup)).toEqual([existing]);
+    const dup = line("msg-aaaa", "2026-09-12T00:00:01.000Z", "again");
+    expect(upsertMessage([existing], dup)).toEqual([dup]);
   });
 
   it("orders equal timestamps by clientMessageId", () => {

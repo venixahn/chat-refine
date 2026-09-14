@@ -196,4 +196,49 @@ describe("rooms API", () => {
     const response = await agent.post("/api/rooms/missing/join").send();
     expect(response.status).toBe(403);
   });
+
+  it("keeps a private room off the directory until invited", async () => {
+    const adaAgent = request.agent(app.getHttpServer());
+    const bobAgent = request.agent(app.getHttpServer());
+    await adaAgent.post("/api/auth/signup").send(ada);
+    await bobAgent.post("/api/auth/signup").send(bob);
+
+    const created = await adaAgent
+      .post("/api/rooms")
+      .send({ name: "secrets", private: true });
+    expect(created.status).toBe(201);
+    expect(created.body.visibility).toBe("private");
+    expect(created.body.role).toBe("owner");
+
+    const directory = await bobAgent.get("/api/rooms/directory");
+    expect(
+      directory.body.some((room: { title: string }) => room.title === "secrets"),
+    ).toBe(false);
+
+    const blocked = await bobAgent.post(`/api/rooms/${created.body.id}/join`);
+    expect(blocked.status).toBe(403);
+
+    const invited = await adaAgent
+      .post(`/api/rooms/${created.body.id}/invite`)
+      .send({ username: "bob" });
+    expect(invited.status).toBe(201);
+    expect(
+      invited.body.members.map((member: { username: string }) => member.username),
+    ).toEqual(expect.arrayContaining(["ada", "bob"]));
+
+    const bobRoom = await bobAgent.get(`/api/rooms/${created.body.id}`);
+    expect(bobRoom.status).toBe(200);
+
+    const topic = await adaAgent
+      .patch(`/api/rooms/${created.body.id}`)
+      .send({ topic: "Need to know" });
+    expect(topic.status).toBe(200);
+    expect(topic.body.topic).toBe("Need to know");
+
+    const muted = await bobAgent
+      .post(`/api/rooms/${created.body.id}/mute`)
+      .send({ muted: true });
+    expect(muted.status).toBe(201);
+    expect(muted.body.muted).toBe(true);
+  });
 });

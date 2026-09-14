@@ -17,12 +17,16 @@ export type Conversation = {
   kind: "group" | "dm";
   slug?: string;
   name?: string;
+  topic?: string;
+  visibility?: "public" | "private";
   createdAt: string;
 };
 
 export type ConversationMember = {
   conversationId: string;
   userId: string;
+  role?: "owner" | "member";
+  muted?: boolean;
 };
 
 export type StoredAttachment = {
@@ -39,6 +43,8 @@ export type StoredMessage = {
   fromUserId: string;
   body: string;
   createdAt: string;
+  editedAt?: string;
+  deletedAt?: string;
   attachment?: StoredAttachment;
 };
 
@@ -64,14 +70,31 @@ export const emptyDb = (): DbSchema => ({
   readCursors: [],
 });
 
+export const isPublicGroup = (room: Conversation): boolean =>
+  room.kind === "group" && room.visibility !== "private";
+
+const fillProfile = (profile: Profile): void => {
+  profile.bio ??= "";
+  profile.status ??= "";
+  profile.preferences ??= defaultPreferences();
+};
+
+const fillRoom = (room: Conversation): void => {
+  room.topic ??= "";
+  room.visibility ??= room.kind === "dm" ? "private" : "public";
+};
+
+const fillMember = (member: ConversationMember): void => {
+  member.role ??= "member";
+  member.muted ??= false;
+};
+
 export const normalizeDb = (data: DbSchema): void => {
   data.messages ??= [];
   data.readCursors ??= [];
-  for (const profile of data.profiles) {
-    profile.bio ??= "";
-    profile.status ??= "";
-    profile.preferences ??= defaultPreferences();
-  }
+  data.profiles.forEach(fillProfile);
+  data.conversations.forEach(fillRoom);
+  data.conversationMembers.forEach(fillMember);
 };
 
 export type PublicProfile = {

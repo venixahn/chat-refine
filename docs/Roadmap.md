@@ -17,12 +17,7 @@ Friction that blocks real use. Order is product value, not git order.
 
 ## Next — Slack-like completeness
 
-| Work | Why |
-| --- | --- |
-| Jump to unread / thread search | Inbox already tracks unread; the open thread does not jump or filter. |
-| Message edit and delete | History is append-only. |
-| Invites, roles, or channel privacy | Anyone who can sign up can join public rooms. |
-| Channel mute / topic | Sidebar is quiet; rooms have no topic or mute. |
+Shipped on `develop`. See Done.
 
 ## Later — ops and scale
 
@@ -40,3 +35,4 @@ Friction that blocks real use. Order is product value, not git order.
 - Slack-like grouped thread and compact `#` sidebar
 - In-repo wiki under `docs/`
 - Text mesh is data-channel only; leftover A/V on that mesh was removed
+- Jump to unread (“New messages”), thread search, edit/delete, private channels + invite, topic, mute channel

@@ -9,6 +9,24 @@ export const createGroupSchema = z.object({
     .min(1)
     .max(64)
     .regex(/^[a-zA-Z0-9 _-]+$/),
+  private: z.boolean().optional(),
+});
+
+export const patchRoomSchema = z.object({
+  topic: z.string().max(250),
+});
+
+export const muteRoomSchema = z.object({
+  muted: z.boolean(),
+});
+
+export const editMessageSchema = z.object({
+  body: z
+    .string()
+    .max(4000)
+    .refine((value) => value.trim().length > 0, {
+      message: "Message needs text",
+    }),
 });
 
 export const openDmSchema = z.union([
@@ -44,6 +62,9 @@ export const postMessageSchema = z
   });
 
 export type CreateGroupInput = z.infer<typeof createGroupSchema>;
+export type PatchRoomInput = z.infer<typeof patchRoomSchema>;
+export type MuteRoomInput = z.infer<typeof muteRoomSchema>;
+export type EditMessageInput = z.infer<typeof editMessageSchema>;
 export type OpenDmInput = z.infer<typeof openDmSchema>;
 export type PeopleQuery = z.infer<typeof peopleQuerySchema>;
 export type PostMessageInput = z.infer<typeof postMessageSchema>;

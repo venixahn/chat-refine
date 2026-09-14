@@ -10,7 +10,9 @@ import {
   CannotDmSelf,
   InvalidAttachment,
   MessageNotFound,
+  NotAGroup,
   NotAMember,
+  NotAuthor,
   UserNotFound,
 } from "./rooms.errors.ts";
 import { runRoomEffect } from "./rooms.http.ts";
@@ -32,6 +34,12 @@ describe("runRoomEffect", () => {
     await expect(
       runRoomEffect(Effect.fail(new MessageNotFound())),
     ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(runRoomEffect(Effect.fail(new NotAuthor()))).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await expect(runRoomEffect(Effect.fail(new NotAGroup()))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     await expect(runRoomEffect(Effect.fail(new Error("boom")))).rejects.toBeInstanceOf(
       InternalServerErrorException,
     );
