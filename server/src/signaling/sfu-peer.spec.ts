@@ -1,7 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
-import { dropForwarded, hasForwarded, midOfTrack } from "./sfu-peer.ts";
+import { dropForwarded, hasForwarded, midOfTrack, receiverOf } from "./sfu-peer.ts";
 
 describe("sfu peer helpers", () => {
+  it("finds the receiver for a specific inbound track", () => {
+    const wanted = { kind: "video" };
+    const other = { kind: "video" };
+    const match = { kind: "video", receiver: { track: wanted } };
+    const pc = {
+      getTransceivers: () => [
+        { kind: "video", receiver: { track: other } },
+        match,
+      ],
+    } as never;
+    expect(receiverOf(pc, wanted as never)).toBe(match);
+  });
+
   it("reads the mid for a forwarded track", () => {
     const track = { kind: "audio" };
     const pc = {

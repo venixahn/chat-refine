@@ -47,7 +47,7 @@ export const armPli = (
   }
   const timer = setInterval(() => {
     const ssrc = track.ssrc;
-    const transceiver = videoReceiver(pc);
+    const transceiver = receiverOf(pc, track);
     if (ssrc && transceiver) {
       void transceiver.receiver.sendRtcpPLI(ssrc);
     }
@@ -86,5 +86,9 @@ export const closeEndpoint = async (endpoint: SfuEndpoint): Promise<void> => {
   await endpoint.pc.close();
 };
 
-const videoReceiver = (pc: RTCPeerConnection): RTCRtpTransceiver | undefined =>
-  pc.getTransceivers().find((item) => item.kind === "video");
+export const receiverOf = (
+  pc: RTCPeerConnection,
+  track: MediaStreamTrack,
+): RTCRtpTransceiver | undefined =>
+  pc.getTransceivers().find((item) => item.receiver.track === track) ??
+  pc.getTransceivers().find((item) => item.kind === track.kind);

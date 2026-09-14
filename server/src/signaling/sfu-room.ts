@@ -90,6 +90,7 @@ export class SfuRoom {
       });
     }
     await this.forwardExisting(userId, endpoint);
+    await this.flushOffer(userId);
   }
 
   private async acceptAnswer(userId: string, sdp: string): Promise<void> {
@@ -98,9 +99,7 @@ export class SfuRoom {
       return;
     }
     await endpoint.pc.setRemoteDescription({ type: "answer", sdp });
-    if (this.retryOffer.delete(userId)) {
-      await this.offerTo(userId, endpoint);
-    }
+    await this.flushOffer(userId);
   }
 
   private async retract(tracks: MediaStreamTrack[]): Promise<void> {
@@ -171,8 +170,7 @@ export class SfuRoom {
       return;
     }
     other.pc.addTrack(track);
-    this.publishRoute(otherId, fromUserId, other, track);
-    await this.offerTo(otherId, other);
+    this.queueOffer(otherId);
   }
 
   private async forwardExisting(
@@ -189,13 +187,25 @@ export class SfuRoom {
           continue;
         }
         endpoint.pc.addTrack(track);
-        this.publishRoute(userId, otherId, endpoint, track);
         added = true;
       }
     }
     if (added) {
-      await this.offerTo(userId, endpoint);
+      this.retryOffer.add(userId);
     }
+  }
+
+  private queueOffer(userId: string): void {
+    this.retryOffer.add(userId);
+    void this.exclusive(userId)(() => this.flushOffer(userId));
+  }
+
+  private async flushOffer(userId: string): Promise<void> {
+    const endpoint = this.members.get(userId);
+    if (!endpoint || !this.retryOffer.delete(userId)) {
+      return;
+    }
+    await this.offerTo(userId, endpoint);
   }
 
   private async offerTo(userId: string, endpoint: SfuEndpoint): Promise<void> {
@@ -214,12 +224,38 @@ export class SfuRoom {
       this.retryOffer.add(userId);
       return;
     }
+    this.publishForwardedRoutes(userId, endpoint);
     if (offer.sdp) {
       this.emit(userId, {
         type: "sfu-offer",
         conversationId: this.conversationId,
         sdp: offer.sdp,
       });
+    }
+  }
+
+  private ownerOf(track: MediaStreamTrack): string | undefined {
+    for (const [userId, member] of this.members) {
+      if (member.inbound.includes(track)) {
+        return userId;
+      }
+    }
+    return undefined;
+  }
+
+  private publishForwardedRoutes(
+    toUserId: string,
+    endpoint: SfuEndpoint,
+  ): void {
+    for (const sender of endpoint.pc.getSenders()) {
+      const track = sender.track;
+      if (!track) {
+        continue;
+      }
+      const fromUserId = this.ownerOf(track);
+      if (fromUserId) {
+        this.publishRoute(toUserId, fromUserId, endpoint, track);
+      }
     }
   }
 
