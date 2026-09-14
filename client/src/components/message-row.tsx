@@ -19,7 +19,7 @@ export const MessageRow = (props: {
   editDraft: string;
   onEditDraft: (value: string) => void;
   onStartEdit: () => void;
-  onSaveEdit: () => void;
+  onSaveEdit: (body: string) => void;
   onCancelEdit: () => void;
   onDelete: () => void;
 }) => (
@@ -107,7 +107,7 @@ export const MessageRow = (props: {
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
-              props.onSaveEdit();
+              props.onSaveEdit(event.currentTarget.value);
             }
             if (event.key === "Escape") {
               props.onCancelEdit();
@@ -118,7 +118,12 @@ export const MessageRow = (props: {
           <button
             type="button"
             class="text-[var(--accent)]"
-            onClick={() => props.onSaveEdit()}
+            onClick={(event) => {
+              const area = event.currentTarget
+                .closest("li")
+                ?.querySelector("textarea");
+              props.onSaveEdit(area?.value ?? "");
+            }}
           >
             Save
           </button>
