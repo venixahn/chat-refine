@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   loadHistory,
+  persistAll,
   persistMessage,
   type HistoryStore,
 } from "./local-history.ts";
@@ -30,9 +31,9 @@ describe("local history", () => {
       fromUserId: "ada",
     };
     persistMessage("room-general", first, store);
-    const again = persistMessage(
+    const again = persistAll(
       "room-general",
-      { ...first, body: "changed", editedAt: "2026-09-12T00:00:09.000Z" },
+      [{ ...first, body: "changed", editedAt: "2026-09-12T00:00:09.000Z" }],
       store,
     );
     expect(again[0]?.body).toBe("changed");

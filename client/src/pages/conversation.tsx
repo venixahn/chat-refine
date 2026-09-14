@@ -75,18 +75,19 @@ export const ConversationPage = () => {
   );
 
   const authors = createMemo(() => {
-    const names = new Map<string, string>();
-    const avatars = new Map<string, string | null>();
-    for (const member of (liveRoom() ?? room())?.members ?? []) {
-      names.set(member.id, member.displayName);
-      avatars.set(member.id, member.avatarUrl);
-    }
+    const members = (liveRoom() ?? room())?.members ?? [];
     const self = profile();
-    if (self) {
-      names.set(self.id, self.displayName);
-      avatars.set(self.id, self.avatarUrl);
-    }
-    return { names, avatars };
+    return [...members, ...(self ? [self] : [])].reduce(
+      (acc, member) => {
+        acc.names.set(member.id, member.displayName);
+        acc.avatars.set(member.id, member.avatarUrl);
+        return acc;
+      },
+      {
+        names: new Map<string, string>(),
+        avatars: new Map<string, string | null>(),
+      },
+    );
   });
 
   const inCall = () => localStream() !== null;

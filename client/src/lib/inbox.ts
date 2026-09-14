@@ -1,4 +1,5 @@
 import type { SignalingEvent } from "@chat-refine/shared";
+import { filter } from "rxjs";
 import { signalTicket } from "./rooms-api.ts";
 import { connectSignal } from "./signal-client.ts";
 
@@ -7,6 +8,9 @@ export type InboxHandle = {
 };
 
 type Activity = Extract<SignalingEvent, { type: "activity" }>;
+
+const isActivity = (event: SignalingEvent): event is Activity =>
+  event.type === "activity";
 
 export const startInbox = async (input: {
   onActivity: (event: Activity) => void;
@@ -17,11 +21,9 @@ export const startInbox = async (input: {
   }
   const signal = connectSignal(ticket.data.ticket);
   await signal.ready;
-  const subscription = signal.events$.subscribe((event) => {
-    if (event.type === "activity") {
-      input.onActivity(event);
-    }
-  });
+  const subscription = signal.events$
+    .pipe(filter(isActivity))
+    .subscribe(input.onActivity);
   return {
     close: () => {
       subscription.unsubscribe();

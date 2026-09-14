@@ -54,3 +54,13 @@ export const persistMessage = (
   store.setItem(storageKey(conversationId), JSON.stringify(next.slice(-500)));
   return next;
 };
+
+export const persistAll = (
+  conversationId: string,
+  incoming: readonly ChatMessage[],
+  store: HistoryStore = defaultHistoryStore(),
+): ChatMessage[] =>
+  incoming.reduce(
+    (_, item) => persistMessage(conversationId, item, store),
+    loadHistory(conversationId, store),
+  );

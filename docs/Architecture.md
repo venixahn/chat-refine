@@ -77,5 +77,5 @@ A/V uses a **selective forwarding unit** in Nest (`werift`). Each caller has one
 Client: Vite (HTTPS in `npm run dev`), SolidJS, TypeScript, Tailwind  
 API: NestJS, Passport Local + session cookie, lowdb  
 Validation: Zod  
-FP / reactive: fp-ts (pure), Effect (IO), RxJS (streams), Solid signals  
+FP / reactive: fp-ts (pure), Effect (IO), RxJS (streams), Solid signals. Persistence updates collections immutably; the SFU and data-channel mesh stay stateful because they wrap `RTCPeerConnection`.  
 Quality: ESLint (complexity max 10), Husky, Vitest, Playwright

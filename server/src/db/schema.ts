@@ -73,29 +73,55 @@ export const emptyDb = (): DbSchema => ({
 export const isPublicGroup = (room: Conversation): boolean =>
   room.kind === "group" && room.visibility !== "private";
 
-const fillProfile = (profile: Profile): void => {
-  profile.bio ??= "";
-  profile.status ??= "";
-  profile.preferences ??= defaultPreferences();
+const fillProfile = (profile: Profile): Profile => ({
+  ...profile,
+  bio: profile.bio ?? "",
+  status: profile.status ?? "",
+  preferences: profile.preferences ?? defaultPreferences(),
+});
+
+const fillRoom = (room: Conversation): Conversation => ({
+  ...room,
+  topic: room.topic ?? "",
+  visibility: room.visibility ?? (room.kind === "dm" ? "private" : "public"),
+});
+
+const fillMember = (member: ConversationMember): ConversationMember => ({
+  ...member,
+  role: member.role ?? "member",
+  muted: member.muted ?? false,
+});
+
+export const seededRooms = (data: DbSchema, now: string): Conversation[] => {
+  if (data.conversations.length > 0) {
+    return data.conversations;
+  }
+  return [
+    {
+      id: "room-general",
+      kind: "group",
+      slug: "general",
+      name: "general",
+      createdAt: now,
+    },
+    {
+      id: "room-random",
+      kind: "group",
+      slug: "random",
+      name: "random",
+      createdAt: now,
+    },
+  ];
 };
 
-const fillRoom = (room: Conversation): void => {
-  room.topic ??= "";
-  room.visibility ??= room.kind === "dm" ? "private" : "public";
-};
-
-const fillMember = (member: ConversationMember): void => {
-  member.role ??= "member";
-  member.muted ??= false;
-};
-
-export const normalizeDb = (data: DbSchema): void => {
-  data.messages ??= [];
-  data.readCursors ??= [];
-  data.profiles.forEach(fillProfile);
-  data.conversations.forEach(fillRoom);
-  data.conversationMembers.forEach(fillMember);
-};
+export const normalizeDb = (data: DbSchema): DbSchema => ({
+  ...data,
+  messages: data.messages ?? [],
+  readCursors: data.readCursors ?? [],
+  profiles: data.profiles.map(fillProfile),
+  conversations: data.conversations.map(fillRoom),
+  conversationMembers: data.conversationMembers.map(fillMember),
+});
 
 export type PublicProfile = {
   id: string;
