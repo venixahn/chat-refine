@@ -1,0 +1,16 @@
+---
+description: Update README, wiki, and project status after every change
+alwaysApply: true
+---
+
+# Keep docs current
+
+After every material change, update docs in the **same change** before finishing the turn. Do not ship code that the wiki still describes the old way.
+
+- `README.md` — behavior, setup, stack, ICE, commands
+- `docs/Home.md`, `docs/Architecture.md`, `docs/Features.md`, `docs/Setup.md`, `docs/Git-Flow.md` — every page the change touches
+- `docs/Project-status.md` — SHA, coverage, e2e, caps, shipped vs open, todos
+- Project-status canvas (local, not git):
+  `C:\Users\venix\.cursor\projects\c-Users-venix-proj-chat-refine-git\canvases\project-status.canvas.tsx`
+
+Architecture and Features must match what ships (today: live text is a WebRTC mesh; call media goes through the Nest SFU). Read the Canvas skill before editing the `.canvas.tsx` file. Link the canvas in the chat reply.

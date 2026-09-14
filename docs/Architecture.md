@@ -17,7 +17,8 @@ docs/     this wiki
 | Message history, unread, files | Yes (`data/db.json`) |
 | Live text (when a peer is connected) | Also WebRTC data channel |
 | Call audio / video | Yes — Nest SFU forwards RTP; each caller uploads once |
-| SDP / ICE / call roster | Yes (`/ws`) |
+| SDP / ICE / call roster / SFU signaling | Yes (`/ws`) |
+| ICE servers (`GET /api/ice`) | Yes — used by the text mesh and each SFU uplink |
 
 Sending a message POSTs it for history, then fans it out over the data channel when a peer is online. Inbox activity frames update unread and last-message without an open thread.
 

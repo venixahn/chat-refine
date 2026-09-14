@@ -20,6 +20,8 @@ On Unix, use `cp .env.example .env`. Set `SESSION_SECRET` before any real use.
 
 ## ICE
 
+The same ICE list is used for the live-text mesh and for each caller’s SFU connection.
+
 - Leave `ICE_SERVERS` blank for Google STUN (internet peers).
 - `ICE_SERVERS=[]` for LAN-only host candidates.
 - Add your own TURN for hard NAT.
