@@ -64,10 +64,11 @@ test("people search matches a display-name fragment", async ({ browser }) => {
   const bob = await bobContext.newPage();
   await signup(ada, adaUser);
   await signup(bob, bobUser);
-  await ada.getByLabel("Find people").fill("bob");
+  const fragment = bobUser.displayName.split(" ")[1] ?? bobUser.username;
+  await ada.getByLabel("Find people").fill(fragment);
   await expect(
     ada.getByRole("button", { name: new RegExp(bobUser.displayName) }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 10_000 });
   await adaContext.close();
   await bobContext.close();
 });

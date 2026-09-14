@@ -123,10 +123,16 @@ export const AppShell = (props: { children?: JSX.Element }) => {
     return result.ok ? result.data : [];
   });
 
-  const [people] = createResource(tick, async () => {
-    const result = await listPeople();
-    return result.ok ? result.data : [];
-  });
+  const [people] = createResource(
+    () => ({
+      tick: tick(),
+      q: dmName().trim() || paletteQuery().trim(),
+    }),
+    async (source) => {
+      const result = await listPeople(source.q || undefined);
+      return result.ok ? result.data : [];
+    },
+  );
 
   const refresh = () => setTick((value) => value + 1);
 
@@ -269,7 +275,7 @@ export const AppShell = (props: { children?: JSX.Element }) => {
   };
 
   const peopleMatches = () =>
-    rankPeople(dmName(), people() ?? []).slice(0, 8);
+    rankPeople(dmName(), people() ?? []).slice(0, 16);
 
   const onOpenDm: JSX.EventHandler<HTMLFormElement, SubmitEvent> = async (
     event,
