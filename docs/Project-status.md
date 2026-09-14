@@ -89,7 +89,7 @@ flowchart LR
 | Gap | Why it hurts |
 | --- | --- |
 | Connecting peers… | STUN fail on symmetric NAT; no TURN wizard |
-| HTTPS for camera | Needed off localhost (LAN HTTP blocks getUserMedia) |
+| Self-signed Vite cert | Accept it once so LAN Join call can open camera/mic |
 | `main` behind `develop` | Production tag is rooms/signaling only |
 | lowdb JSON | One process; not durable under concurrent writers |
 | No edit / delete / invites | Messages and memberships are append-only |

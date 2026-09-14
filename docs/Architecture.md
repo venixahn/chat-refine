@@ -73,7 +73,7 @@ A/V uses a **selective forwarding unit** in Nest (`werift`). Each caller has one
 
 ## Stack
 
-Client: Vite, SolidJS, TypeScript, Tailwind  
+Client: Vite (HTTPS in `npm run dev`), SolidJS, TypeScript, Tailwind  
 API: NestJS, Passport Local + session cookie, lowdb  
 Validation: Zod  
 FP / reactive: fp-ts (pure), Effect (IO), RxJS (streams), Solid signals  

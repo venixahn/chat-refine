@@ -5,18 +5,22 @@ const mediaExceptionHint = (name: string): string | null => {
   if (name === "NotFoundError" || name === "DevicesNotFoundError") {
     return "No microphone or camera is available.";
   }
+  if (name === "SecurityError") {
+    return "Camera and mic need HTTPS. Open https://127.0.0.1:5173 and accept the certificate.";
+  }
   return null;
 };
 
 export const callMediaError = (error?: unknown): string => {
-  if (typeof window !== "undefined" && window.isSecureContext === false) {
-    return "Camera and mic need http://127.0.0.1 or HTTPS — not a LAN hostname over HTTP.";
+  const name = error instanceof DOMException ? error.name : "";
+  const hint = mediaExceptionHint(name);
+  if (hint) {
+    return hint;
   }
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-    return "This browser cannot access camera or microphone.";
+    return "Camera and mic need HTTPS. Open https://127.0.0.1:5173 and accept the certificate.";
   }
-  const name = error instanceof DOMException ? error.name : "";
-  return mediaExceptionHint(name) ?? "Could not access microphone or camera";
+  return "Could not access microphone or camera";
 };
 
 export const captureLocal = async (): Promise<MediaStream> => {
