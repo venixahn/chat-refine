@@ -40,7 +40,7 @@ export {
   rankPeople,
   type SearchablePerson,
 } from "./people.ts";
-export { crc32, zipStore, type ZipEntry } from "./zip-store.ts";
+export { newId } from "./ids.ts";
 export {
   upsertMessage,
   messageOrd,

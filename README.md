@@ -66,7 +66,7 @@ npm run dev
 - Client: [http://127.0.0.1:5173](http://127.0.0.1:5173) (also on your LAN IP)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Your messages sit on the right; others on the left. Join a call from the conversation header — your camera and mic go to Nest, which forwards them. Click your name to edit bio, status, theme, visibility, or pick one of 36 avatars (or upload your own). Use **Notify** if you want desktop alerts while another tab is focused.
+Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Your messages sit on the right; others on the left. Join a call from **http://127.0.0.1:5173** (or HTTPS) — browsers block camera and mic on a LAN hostname over HTTP. Click your name to edit bio, status, theme, visibility, or pick one of 36 avatars (or upload your own). Use **Notify** if you want desktop alerts while another tab is focused.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 

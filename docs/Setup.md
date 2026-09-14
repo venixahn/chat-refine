@@ -32,7 +32,7 @@ The same ICE list is used for the live-text mesh and for each caller’s SFU con
 npm run dev
 ```
 
-- Client: http://127.0.0.1:5173 (also on your LAN IP)
+- Client: http://127.0.0.1:5173 (also on your LAN IP; use 127.0.0.1 or HTTPS for camera/mic)
 - API: http://127.0.0.1:3000/api/health
 
 Vite proxies `/api` and `/ws` to Nest.
