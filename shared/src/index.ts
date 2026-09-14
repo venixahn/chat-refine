@@ -11,6 +11,7 @@ export {
 } from "./mesh.ts";
 export {
   DEFAULT_ICE_SERVERS,
+  hasRelay,
   iceConfigSchema,
   iceServerSchema,
   iceServersSchema,

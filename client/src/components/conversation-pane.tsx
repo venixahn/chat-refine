@@ -3,8 +3,9 @@ import { Index, Show, type JSX } from "solid-js";
 import type { CallPresence, ChatMessage } from "@chat-refine/shared";
 import { CallStage, joinCallLabel } from "./call-stage.tsx";
 import type { ChatSession } from "../lib/chat-session.ts";
-import { continuesBurst, firstUnreadId, matchesQuery } from "../lib/thread-ui.ts";
+import { continuesBurst, firstUnreadId, matchesQuery, type PresencePerson } from "../lib/thread-ui.ts";
 import { AttachmentControl } from "./attachment-control.tsx";
+import { MemberStrip } from "./member-strip.tsx";
 import { MessageRow } from "./message-row.tsx";
 import type { RoomView } from "../lib/rooms-api.ts";
 import type { RemoteMedia } from "../lib/chat-session.ts";
@@ -24,6 +25,8 @@ type PaneProps = {
   roster: CallPresence[];
   names: Map<string, string>;
   avatars: Map<string, string | null>;
+  presence: PresencePerson[];
+  reachHint: string | null;
   messages: ChatMessage[];
   typing: string[];
   draft: string;
@@ -209,6 +212,7 @@ export const ConversationPane = (props: PaneProps): JSX.Element => {
             </Show>
             {props.room?.title ?? "Conversation"}
           </h2>
+          <MemberStrip people={props.presence} />
           <Show when={props.room?.kind === "group"}>
             <form
               class="mt-1"
@@ -231,6 +235,11 @@ export const ConversationPane = (props: PaneProps): JSX.Element => {
             {props.status}
             <Show when={props.callLabel}>{(label) => ` · ${label()}`}</Show>
           </p>
+          <Show when={props.reachHint}>
+            {(hint) => (
+              <p class="text-xs text-[var(--muted)]">{hint()}</p>
+            )}
+          </Show>
         </div>
         <div class="flex min-w-0 flex-col items-stretch gap-2 md:items-end">
           <input

@@ -23,6 +23,7 @@ import {
   patchRoomTopic,
   type RoomView,
 } from "../lib/rooms-api.ts";
+import { presenceOf } from "../lib/thread-ui.ts";
 
 const failText = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;
@@ -61,6 +62,10 @@ export const ConversationPage = () => {
   const [topicDraft, setTopicDraft] = createSignal("");
   const [inviteName, setInviteName] = createSignal("");
   const [liveRoom, setLiveRoom] = createSignal<RoomView | null>(null);
+  const [herePeers, setHerePeers] = createSignal<
+    { userId: string; displayName: string }[]
+  >([]);
+  const [reachHint, setReachHint] = createSignal<string | null>(null);
 
   const [profile] = createResource(() =>
     me().then((result) => (result.ok ? result.data : null)),
@@ -121,9 +126,10 @@ export const ConversationPage = () => {
       conversationId,
       self,
       onMessages: setMessages,
-      onPeers: () => undefined,
+      onPeers: setHerePeers,
       onTyping: setTyping,
       onStatus: setStatus,
+      onHint: setReachHint,
       onLocalStream: setLocalStream,
       onRemoteStreams: setRemoteStreams,
       onCallRoster: setCallRoster,
@@ -148,6 +154,8 @@ export const ConversationPage = () => {
       setLocalStream(null);
       setRemoteStreams([]);
       setCallRoster([]);
+      setHerePeers([]);
+      setReachHint(null);
     });
   });
 
@@ -200,6 +208,13 @@ export const ConversationPage = () => {
   };
 
   const shownRoom = () => liveRoom() ?? room();
+  const presence = createMemo(() =>
+    presenceOf(
+      shownRoom()?.members ?? [],
+      herePeers(),
+      profile() ?? undefined,
+    ),
+  );
 
   return (
     <ConversationPane
@@ -217,6 +232,8 @@ export const ConversationPage = () => {
       roster={callRoster()}
       names={authors().names}
       avatars={authors().avatars}
+      presence={presence()}
+      reachHint={reachHint()}
       messages={messages()}
       typing={typing()}
       draft={draft()}

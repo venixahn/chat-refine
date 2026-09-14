@@ -36,6 +36,14 @@ const parseIceJson = (raw: string): unknown => {
   }
 };
 
+const urlsOf = (server: IceServer): string[] =>
+  Array.isArray(server.urls) ? server.urls : [server.urls];
+
+export const hasRelay = (servers: IceServer[]): boolean =>
+  servers.some((server) =>
+    urlsOf(server).some((url) => /^turns?:/i.test(url)),
+  );
+
 export const parseIceServers = (raw: string | undefined): IceServer[] => {
   const trimmed = raw?.trim();
   if (!trimmed) {

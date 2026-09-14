@@ -50,6 +50,73 @@ export const firstUnreadId = (
       item.createdAt > since,
   )?.clientMessageId;
 
+export type PresencePerson = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  here: boolean;
+};
+
+const upsertPerson = (
+  rows: Map<string, PresencePerson>,
+  id: string,
+  name: string,
+  avatarUrl: string | null,
+  here: boolean,
+): void => {
+  const existing = rows.get(id);
+  if (!existing) {
+    rows.set(id, { id, name, avatarUrl, here });
+    return;
+  }
+  rows.set(id, {
+    id,
+    name: existing.name || name,
+    avatarUrl: existing.avatarUrl ?? avatarUrl,
+    here: existing.here || here,
+  });
+};
+
+export const presenceOf = (
+  members: readonly {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  }[],
+  present: readonly { userId: string; displayName: string }[],
+  self?: { id: string; displayName: string; avatarUrl?: string | null },
+): PresencePerson[] => {
+  const rows = new Map<string, PresencePerson>();
+  const online = new Set(present.map((peer) => peer.userId));
+  if (self) {
+    online.add(self.id);
+    upsertPerson(
+      rows,
+      self.id,
+      self.displayName,
+      self.avatarUrl ?? null,
+      true,
+    );
+  }
+  for (const member of members) {
+    upsertPerson(
+      rows,
+      member.id,
+      member.displayName,
+      member.avatarUrl ?? null,
+      online.has(member.id),
+    );
+  }
+  for (const peer of present) {
+    upsertPerson(rows, peer.userId, peer.displayName, null, true);
+  }
+  return [...rows.values()].sort(
+    (left, right) =>
+      Number(right.here) - Number(left.here) ||
+      left.name.localeCompare(right.name),
+  );
+};
+
 export const matchesQuery = (
   query: string,
   message: { body: string; deletedAt?: string },

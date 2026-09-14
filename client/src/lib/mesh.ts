@@ -6,6 +6,7 @@ import {
   type SignalingPeer,
 } from "@chat-refine/shared";
 import { fromEvent, type Subscription } from "rxjs";
+import { ICE_STALL_MS, iceStalled } from "./mesh-status.ts";
 
 export type Mesh = {
   offerTo: (peer: SignalingPeer) => Promise<void>;
@@ -16,6 +17,7 @@ export type Mesh = {
   sendTo: (userId: string, event: P2pEvent) => void;
   drop: (userId: string) => void;
   openCount: () => number;
+  stalled: () => boolean;
   close: () => void;
 };
 
@@ -24,6 +26,8 @@ type PeerLink = {
   pc: RTCPeerConnection;
   channel?: RTCDataChannel;
   subscriptions: Subscription[];
+  startedAt: number;
+  stallTimer?: ReturnType<typeof setTimeout>;
 };
 
 const parseCandidate = (candidate: string): RTCIceCandidateInit | null => {
@@ -121,6 +125,9 @@ export const createMesh = (input: {
     if (!link) {
       return;
     }
+    if (link.stallTimer) {
+      clearTimeout(link.stallTimer);
+    }
     for (const subscription of link.subscriptions) {
       subscription.unsubscribe();
     }
@@ -166,6 +173,7 @@ export const createMesh = (input: {
         },
       ),
     );
+    pc.addEventListener("iceconnectionstatechange", () => input.onState());
     pc.addEventListener("datachannel", (event) => {
       bindChannel(peer.userId, event.channel);
     });
@@ -189,7 +197,13 @@ export const createMesh = (input: {
       return existing;
     }
     const pc = new RTCPeerConnection(iceConfig);
-    const link: PeerLink = { peer, pc, subscriptions: [] };
+    const link: PeerLink = {
+      peer,
+      pc,
+      subscriptions: [],
+      startedAt: Date.now(),
+      stallTimer: setTimeout(() => input.onState(), ICE_STALL_MS),
+    };
     peers.set(peer.userId, link);
     wirePeerConnection(peer, pc, link);
     if (asOfferer) {
@@ -228,6 +242,19 @@ export const createMesh = (input: {
       sendAnswer(link.peer, answer.sdp);
     }
   };
+
+  const openCount = () =>
+    [...peers.values()].filter((link) => link.channel?.readyState === "open")
+      .length;
+
+  const stalled = () =>
+    iceStalled(
+      openCount(),
+      [...peers.values()].map((link) => ({
+        ice: link.pc.iceConnectionState,
+        startedAt: link.startedAt,
+      })),
+    );
 
   return {
     offerTo: async (peer) => {
@@ -281,9 +308,8 @@ export const createMesh = (input: {
       }
     },
     drop,
-    openCount: () =>
-      [...peers.values()].filter((link) => link.channel?.readyState === "open")
-        .length,
+    openCount,
+    stalled,
     close: () => {
       for (const id of [...peers.keys()]) {
         drop(id);

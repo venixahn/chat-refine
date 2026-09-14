@@ -10,8 +10,6 @@ Friction that blocks real use. Order is product value, not git order.
 
 | Work | Why |
 | --- | --- |
-| Presence + member list | Channel header shows who is in the room. Small Slack-like gap, high everyday value. |
-| TURN + Connecting-peers copy | Hard NAT still fails STUN. Keep the e2e string `Connecting peers…`; add a recovery hint when ICE stalls. Document a TURN path you actually run. |
 | Production serve | Nest serves `client/dist`, HTTPS, secure cookies, required `SESSION_SECRET`. Vite-only HTTPS is a dev trick. |
 | Release to `main` | Merge `develop` → `main` only after the production shape is chosen. Ask before promoting. |
 
@@ -36,3 +34,5 @@ Shipped on `develop`. See Done.
 - In-repo wiki under `docs/`
 - Text mesh is data-channel only; leftover A/V on that mesh was removed
 - Jump to unread (“New messages”), thread search, edit/delete, private channels + invite, topic, mute channel
+- Presence + member list in the channel header (here vs everyone in the room)
+- Coturn via `ICE_SERVERS`; `Connecting peers…` stays the e2e string, with a relay hint when ICE stalls

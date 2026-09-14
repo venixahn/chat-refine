@@ -1,12 +1,12 @@
 # chat-refine status
 
-Late alpha. Snapshot of Slack-like completeness (unread jump, search, edit/delete, private invite, topic, mute) on `develop`, 14 Sep 2026.
+Late alpha. Snapshot of presence in the channel header plus a Connecting-peers relay hint and a coturn recipe on `develop`, 14 Sep 2026.
 
 This page is the in-repo export of the Cursor project-status canvas. The live canvas is a local Cursor file (not in git). Anyone with the repo can read this markdown. Sequenced next work: [Roadmap](Roadmap.md).
 
 On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, rooms, history, unread, files, signaling, and the SFU. Live text prefers a WebRTC data-channel mesh (no A/V on those peer connections); an open thread also refetches history on activity.
 
-**Core loop is complete on `develop`.** Sign up, rooms and DMs (public Join or private invite), server-backed history with edit/delete, inbox unread plus jump-to-unread in the thread, attachments (file or folder from one Attach control), notifications (muted channels stay quiet), profile (bio, status, avatars, theme, visibility), Telegram-style people search, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. Production serve and TURN are not done.
+**Core loop is complete on `develop`.** Sign up, rooms and DMs (public Join or private invite), server-backed history with edit/delete, inbox unread plus jump-to-unread in the thread, attachments (file or folder from one Attach control), notifications (muted channels stay quiet), profile (bio, status, avatars, theme, visibility), Telegram-style people search, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. Channel header shows who is in the room. Hard NAT uses coturn via `ICE_SERVERS`. Production serve is not done.
 
 | Maturity | Shared + server lines | Playwright e2e last push | SFU call cap |
 | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 
 ## What ships today
 
-16 of 20 product surfaces shipped.
+18 of 20 product surfaces shipped.
 
 | Surface | State | Limit |
 | --- | --- | --- |
@@ -56,10 +56,11 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | A/V join, mute, camera | Done | Media through Nest SFU, cap 16 |
 | Nest SFU (werift) | Done | Coalesced A/V offers; queued renegotiation; cap 16 |
 | Mobile stack + markdown | Done | Bold, italic, code, http(s) links |
-| Internet ICE (Google STUN) | Done on develop | Hard NAT still needs TURN |
+| Presence + members | Done | Header avatars; here = open thread |
+| Internet ICE | Done on develop | STUN default; coturn via `ICE_SERVERS`; stall hint |
 | In-repo wiki (`docs/`) | Done | Native GitHub Wiki locked on private free plan |
 | Production single process | Not wired | Nest does not yet serve `client/dist` |
-| Promote develop to main | Not done | `main` is 71 commits behind `2cbf903` |
+| Promote develop to main | Not done | `main` is 86 commits behind `742b91c` |
 
 ## UX
 
@@ -78,7 +79,7 @@ flowchart LR
 | Flow | Detail |
 | --- | --- |
 | Directory | Unread bold + badge (muted stays quiet), last message, `#` channels, DMs, create, private, find |
-| Thread | Slack-like left-aligned + grouped bursts, boxed composer, Attach, search, New messages divider, edit/delete, topic |
+| Thread | Slack-like left-aligned + grouped bursts, boxed composer, Attach, search, New messages divider, edit/delete, topic, member avatars |
 | Call | Join / mute / camera / leave; SFU + roster + cap 16; remote video autoplays |
 | Profile | Bio, status, 36 avatars or upload, theme, visibility |
 | Notify | Opt-in desktop alerts while another tab is focused |
@@ -88,7 +89,7 @@ flowchart LR
 
 | Gap | Why it hurts |
 | --- | --- |
-| Connecting peers… | STUN fail on symmetric NAT; no TURN wizard |
+| Hard NAT | STUN fails on symmetric NAT; run coturn and set `ICE_SERVERS` |
 | Self-signed Vite cert | Accept it once so LAN Join call can open camera/mic |
 | `main` behind `develop` | Production tag is rooms/signaling only |
 | lowdb JSON | One process; not durable under concurrent writers |
@@ -100,21 +101,21 @@ Shared and server stay behind the V8 gate. Client mesh helpers and SFU lock help
 
 ### Shared + server V8 coverage vs fail thresholds
 
-Source: local Vitest V8 · 14 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 134 unit/API tests, 14 Playwright specs.
+Source: local Vitest V8 · 14 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 140 unit/API tests, 14 Playwright specs.
 
 | Metric | Measured % | Fail threshold % |
 | --- | --- | --- |
-| Lines | 89.56 | 80 |
-| Statements | 89.56 | 80 |
-| Functions | 88.19 | 80 |
-| Branches | 84.43 | 70 |
+| Lines | 89.33 | 80 |
+| Statements | 89.33 | 80 |
+| Functions | 88.23 | 80 |
+| Branches | 84.59 | 70 |
 
 | Practice | How it shows up |
 | --- | --- |
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
 | Hooks | pre-commit Vitest; pre-push Playwright (14 specs, HTTPS Vite, ignore self-signed cert) |
 | Complexity | ESLint complexity max 10 |
-| Git Flow | `develop` is integration; `main` is 71 commits behind; no leftover feature branches |
+| Git Flow | `develop` is integration; `main` is 86 commits behind; no leftover feature branches |
 | Docs | README and `docs/` update in the same change as the code |
 | Security posture | Argon2 passwords; session cookie; default `SESSION_SECRET` fallback in create-app |
 
@@ -140,8 +141,6 @@ Sequenced in [Roadmap](Roadmap.md). Now is friction that blocks real use. Slack-
 
 | Work | Why |
 | --- | --- |
-| Presence + member list | Channel header shows who is in the room |
-| TURN + Connecting-peers copy | Hard NAT still fails STUN; keep the e2e string |
 | Production serve | Nest serves `client/dist`, HTTPS, secure cookies, required secret |
 | Release to `main` | Only after production shape is chosen |
 
@@ -160,4 +159,4 @@ Shipped work (history, inbox, SFU, HTTPS Vite, Slack-like thread, people search)
 
 ## Git
 
-This change: apply the existing fp-ts / Effect / RxJS / Solid split more consistently — immutable collection writes, tagged Effect errors to HTTP, RxJS signaling. Parent `develop` was `9956d2c`. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4). Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main` after production serve.
+This change: presence in the channel header, a relay hint when ICE stalls, and a coturn Docker recipe for `ICE_SERVERS`. Parent `develop` was `742b91c`. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4). Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main` after production serve.
