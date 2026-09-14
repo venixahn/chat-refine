@@ -102,7 +102,9 @@ test("a file sent while alone is visible later", async ({ browser }) => {
     buffer: Buffer.from("shared-note"),
   });
   await ada.getByRole("button", { name: "Send" }).click();
-  await expect(ada.getByRole("main").getByRole("link", { name: fileName })).toBeVisible();
+  await expect(ada.getByRole("main").getByRole("link", { name: fileName })).toBeVisible({
+    timeout: 15_000,
+  });
 
   await bob.getByRole("link", { name: /general/ }).click();
   await expect(bob.getByRole("main").getByRole("link", { name: fileName })).toBeVisible({

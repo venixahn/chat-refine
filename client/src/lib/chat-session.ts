@@ -3,6 +3,7 @@ import {
   avPeerCount,
   canAddAvPeer,
   iceConfigSchema,
+  newId,
   previewOf,
   type CallPresence,
   type ChatMessage,
@@ -14,6 +15,7 @@ import {
 import { Subject } from "rxjs";
 import { debounceTime } from "rxjs/operators";
 import type { PublicProfile } from "./auth-api.ts";
+import { captureLocal } from "./capture.ts";
 import { loadHistory, persistMessage } from "./local-history.ts";
 import { createMesh, stubPeer, type Mesh } from "./mesh.ts";
 import { createSfuLink } from "./sfu-link.ts";
@@ -73,17 +75,6 @@ const fromPeerMessage = (
       }
     : undefined,
 });
-
-const captureLocal = async (): Promise<MediaStream> => {
-  try {
-    return await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: true,
-    });
-  } catch {
-    return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  }
-};
 
 export const startChatSession = async (input: {
   conversationId: string;
@@ -421,7 +412,7 @@ export const startChatSession = async (input: {
         return;
       }
       const createdAt = new Date().toISOString();
-      const clientMessageId = crypto.randomUUID();
+      const clientMessageId = newId();
       const posted = outgoing.file
         ? await postMessageFile(input.conversationId, {
             clientMessageId,
@@ -471,8 +462,12 @@ export const startChatSession = async (input: {
       input.onCallError(null);
       try {
         localStream = await captureLocal();
-      } catch {
-        input.onCallError("Could not access microphone or camera");
+      } catch (error) {
+        input.onCallError(
+          error instanceof Error
+            ? error.message
+            : "Could not access microphone or camera",
+        );
         return;
       }
       inCall = true;
