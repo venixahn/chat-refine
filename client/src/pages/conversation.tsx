@@ -307,13 +307,13 @@ export const ConversationPage = () => {
         setEditDraft(item.body);
       }}
       onEditDraft={setEditDraft}
-      onSaveEdit={() => {
+      onSaveEdit={(body) => {
         const id = editingId();
-        if (!id) {
+        if (!id || !body.trim()) {
           return;
         }
         void session()
-          ?.editMessage(id, editDraft())
+          ?.editMessage(id, body)
           .then(() => {
             setEditingId(null);
             setEditDraft("");

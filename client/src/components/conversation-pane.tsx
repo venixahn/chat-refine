@@ -55,7 +55,7 @@ type PaneProps = {
   onInvite: () => void;
   onStartEdit: (item: ChatMessage) => void;
   onEditDraft: (value: string) => void;
-  onSaveEdit: () => void;
+  onSaveEdit: (body: string) => void;
   onCancelEdit: () => void;
   onDelete: (item: ChatMessage) => void;
 };
