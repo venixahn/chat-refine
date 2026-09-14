@@ -162,6 +162,9 @@ export const ConversationPage = () => {
   createEffect(() => {
     messages();
     unreadSince();
+    if (editingId()) {
+      return;
+    }
     queueMicrotask(() => {
       if (!scroller) {
         return;
