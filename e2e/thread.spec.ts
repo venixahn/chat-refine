@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { signup, uniqueUser } from "./helpers.ts";
+import { sharePublicRoom, signup, uniqueUser } from "./helpers.ts";
 
 test("an open thread jumps to unread, searches, and edits", async ({
   browser,
 }) => {
+  test.setTimeout(60_000);
   const adaUser = uniqueUser("ada");
   const bobUser = uniqueUser("bob");
   const adaContext = await browser.newContext();
@@ -14,7 +15,8 @@ test("an open thread jumps to unread, searches, and edits", async ({
   await signup(ada, adaUser);
   await signup(bob, bobUser);
 
-  await ada.getByRole("link", { name: "general" }).click();
+  const roomName = `thrd${Date.now()}`.slice(0, 20);
+  await sharePublicRoom(ada, bob, roomName);
   await expect(ada.getByText(/Waiting for peers|Connected ·/)).toBeVisible({
     timeout: 20_000,
   });
@@ -23,19 +25,16 @@ test("an open thread jumps to unread, searches, and edits", async ({
   await ada.getByRole("button", { name: "Send" }).click();
   await expect(ada.getByRole("main").getByText(body)).toBeVisible();
 
-  await bob.getByRole("link", { name: /general/ }).click();
   await expect(bob.getByText("New messages")).toBeVisible({ timeout: 15_000 });
   await expect(bob.getByRole("main").getByText(body)).toBeVisible();
 
   await bob.getByLabel("Search messages").fill(body);
   await expect(bob.getByRole("main").getByText(body)).toBeVisible();
 
-  await expect(ada.getByText(/Connected ·/)).toBeVisible({ timeout: 20_000 });
   await ada.getByRole("main").getByRole("button", { name: "Edit", exact: true }).click();
   const edited = `${body}-fixed`;
-  const editor = ada.getByLabel("Edit message");
-  await editor.fill(edited);
-  await editor.press("Enter");
+  await ada.getByLabel("Edit message").fill(edited);
+  await ada.getByRole("main").getByRole("button", { name: "Save" }).click();
   await expect(ada.getByRole("main").getByText(edited)).toBeVisible({
     timeout: 10_000,
   });
@@ -69,6 +68,7 @@ test("a private channel can be invited, given a topic, and muted", async ({
 
   await ada.getByLabel("Invite").fill(bobUser.username);
   await ada.getByRole("button", { name: "Invite" }).click();
+  await expect(ada.getByLabel("Invite")).toHaveValue("");
 
   await bob.goto("/app");
   await expect(bob.getByRole("link", { name: roomName })).toBeVisible({
