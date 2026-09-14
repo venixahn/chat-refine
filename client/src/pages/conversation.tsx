@@ -138,10 +138,15 @@ export const ConversationPage = () => {
   });
 
   const sendDraft = async () => {
+    const current = session();
     const pending = file();
     setSendError(null);
+    if (!current) {
+      setSendError("Still connecting — try Send again.");
+      return;
+    }
     try {
-      await session()?.send({ body: draft(), file: pending ?? undefined });
+      await current.send({ body: draft(), file: pending ?? undefined });
       setDraft("");
       setFile(null);
     } catch (error) {
