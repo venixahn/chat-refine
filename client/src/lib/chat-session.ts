@@ -228,14 +228,6 @@ export const startChatSession = async (input: {
         mesh.sendTo(userId, currentCallState());
       }
     },
-    onRemoteStream: (userId, stream) => {
-      if (stream) {
-        remoteByUser.set(userId, stream);
-      } else {
-        remoteByUser.delete(userId);
-      }
-      publishRemote();
-    },
     onEvent: (fromUserId, event) => {
       onPeerEvent(fromUserId, event);
     },

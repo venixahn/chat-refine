@@ -1,34 +1,16 @@
 import { expect, test } from "@playwright/test";
-
-const uniqueUser = () => {
-  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  return {
-    username: `user${suffix}`.slice(0, 32),
-    displayName: "Test User",
-    password: "sufficient",
-  };
-};
+import { signup, uniqueUser } from "./helpers.ts";
 
 test("signup then sign out", async ({ page }) => {
-  const user = uniqueUser();
-  await page.goto("/signup");
-  await page.getByLabel("Username").fill(user.username);
-  await page.getByLabel("Display name").fill(user.displayName);
-  await page.getByLabel("Password").fill(user.password);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("heading", { name: user.displayName })).toBeVisible();
+  const user = uniqueUser("user", "Test User");
+  await signup(page, user);
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("heading", { name: "chat-refine" })).toBeVisible();
 });
 
 test("signin succeeds and rejected signin shows an error", async ({ page }) => {
-  const user = uniqueUser();
-  await page.goto("/signup");
-  await page.getByLabel("Username").fill(user.username);
-  await page.getByLabel("Display name").fill(user.displayName);
-  await page.getByLabel("Password").fill(user.password);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("heading", { name: user.displayName })).toBeVisible();
+  const user = uniqueUser("user", "Test User");
+  await signup(page, user);
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await page.goto("/login");

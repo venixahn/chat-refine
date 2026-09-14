@@ -1,11 +1,5 @@
 import { zipStore } from "@chat-refine/shared";
 
-export type FilePayload = {
-  name: string;
-  mime: string;
-  data: string;
-};
-
 export const readAvatarDataUrl = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();

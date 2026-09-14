@@ -12,6 +12,7 @@ This folder is the project wiki. GitHub Wiki is not available on a private free-
 - [Architecture](Architecture.md) — system diagram, SFU, P2P text, history
 - [Features](Features.md) — what works today, including attachments, profile, and search
 - [Project-status](Project-status.md) — snapshot of what ships, gaps, and next work
+- [Roadmap](Roadmap.md) — sequenced Now / Next / Later
 - [Git-Flow](Git-Flow.md) — branches and cleanup
 
 ## Code
