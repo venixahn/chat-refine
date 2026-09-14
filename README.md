@@ -118,6 +118,7 @@ Atomic commits, concise conventional messages (`feat:`, `fix:`, `test:`, `refact
 ## Wiki
 
 - In-repo docs: [`docs/Home.md`](docs/Home.md)
+- Architecture (system diagram): [`docs/Architecture.md`](docs/Architecture.md)
 - Project status: [`docs/Project-status.md`](docs/Project-status.md)
 - GitHub Project: [chat-refine wiki](https://github.com/users/venix523/projects/1)
 
