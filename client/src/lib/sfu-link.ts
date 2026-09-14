@@ -41,6 +41,7 @@ export const createSfuLink = (input: {
   let pc: RTCPeerConnection | null = null;
   let local: MediaStream | null = null;
   let makingOffer = false;
+  let pendingRemoteOffer: string | null = null;
 
   const sendIce = (candidate: RTCIceCandidate) => {
     input.send({
@@ -141,6 +142,33 @@ export const createSfuLink = (input: {
     return pc;
   };
 
+  const applyRemoteOffer = async (sdp: string): Promise<void> => {
+    const connection = ensure();
+    if (connection.signalingState === "have-local-offer" && !makingOffer) {
+      pendingRemoteOffer = sdp;
+      return;
+    }
+    const glare = makingOffer || connection.signalingState !== "stable";
+    if (shouldIgnoreOffer(true, glare)) {
+      return;
+    }
+    if (glare) {
+      await connection.setLocalDescription({ type: "rollback" });
+    }
+    await connection.setRemoteDescription({ type: "offer", sdp });
+    await flushIce();
+    flushOrphans();
+    const answer = await connection.createAnswer();
+    await connection.setLocalDescription(answer);
+    if (answer.sdp) {
+      input.send({
+        type: "sfu-answer",
+        conversationId: input.conversationId,
+        sdp: answer.sdp,
+      });
+    }
+  };
+
   return {
     attach: (stream) => {
       local = stream;
@@ -152,34 +180,18 @@ export const createSfuLink = (input: {
       }
       await replaceKindOnPc(pc, kind, track, local);
     },
-    handleOffer: async (sdp) => {
-      const connection = ensure();
-      const glare = makingOffer || connection.signalingState !== "stable";
-      if (shouldIgnoreOffer(true, glare)) {
-        return;
-      }
-      if (glare) {
-        await connection.setLocalDescription({ type: "rollback" });
-      }
-      await connection.setRemoteDescription({ type: "offer", sdp });
-      await flushIce();
-      flushOrphans();
-      const answer = await connection.createAnswer();
-      await connection.setLocalDescription(answer);
-      if (answer.sdp) {
-        input.send({
-          type: "sfu-answer",
-          conversationId: input.conversationId,
-          sdp: answer.sdp,
-        });
-      }
-    },
+    handleOffer: (sdp) => applyRemoteOffer(sdp),
     handleAnswer: async (sdp) => {
       if (!pc || pc.signalingState !== "have-local-offer") {
         return;
       }
       await pc.setRemoteDescription({ type: "answer", sdp });
       await flushIce();
+      const queued = pendingRemoteOffer;
+      pendingRemoteOffer = null;
+      if (queued) {
+        await applyRemoteOffer(queued);
+      }
     },
     handleIce: async (candidate) => {
       if (!pc?.remoteDescription) {
@@ -208,6 +220,7 @@ export const createSfuLink = (input: {
       pendingTracks.clear();
       pendingOrphans.length = 0;
       pendingIce.length = 0;
+      pendingRemoteOffer = null;
       pc?.close();
       pc = null;
       local = null;

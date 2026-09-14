@@ -21,6 +21,20 @@ const signup = async (
   await expect(page.getByRole("heading", { name: user.displayName })).toBeVisible();
 };
 
+const remotePlaying = (page: Page, name: string) =>
+  page.locator(`video[aria-label="${name}"]`).evaluate((el: HTMLVideoElement) => {
+    const stream = el.srcObject as MediaStream | null;
+    const live = Boolean(
+      stream?.getVideoTracks().some((track) => track.readyState === "live"),
+    );
+    return live && !el.paused;
+  });
+
+const joinCall = async (page: Page) => {
+  await page.getByRole("button", { name: "Join call" }).click();
+  await expect(page.getByLabel("You")).toBeVisible({ timeout: 15_000 });
+};
+
 test("two members join a P2P call", async ({ browser }) => {
   test.setTimeout(90_000);
   const adaUser = uniqueUser("ada");
@@ -45,24 +59,13 @@ test("two members join a P2P call", async ({ browser }) => {
     timeout: 20_000,
   });
 
-  await ada.getByRole("button", { name: "Join call" }).click();
-  await expect(ada.getByLabel("You")).toBeVisible({ timeout: 15_000 });
-  await bob.getByRole("button", { name: "Join call" }).click();
-  await expect(bob.getByLabel("You")).toBeVisible({ timeout: 15_000 });
-
+  await joinCall(ada);
+  await joinCall(bob);
   await expect(ada.getByLabel(bobUser.displayName)).toBeVisible({
     timeout: 20_000,
   });
   await expect(bob.getByLabel(adaUser.displayName)).toBeVisible({
     timeout: 20_000,
-  });
-const remotePlaying = (page: Page, name: string) =>
-  page.getByLabel(name).evaluate((el: HTMLVideoElement) => {
-    const stream = el.srcObject as MediaStream | null;
-    const live = Boolean(
-      stream?.getVideoTracks().some((track) => track.readyState === "live"),
-    );
-    return live && !el.paused;
   });
   await expect
     .poll(() => remotePlaying(ada, bobUser.displayName), { timeout: 20_000 })
