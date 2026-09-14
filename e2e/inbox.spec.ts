@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 const uniqueUser = (name: string) => {
@@ -114,6 +117,40 @@ test("a file sent while alone is visible later", async ({ browser }) => {
 
   await bob.getByRole("link", { name: /general/ }).click();
   await expect(bob.getByRole("main").getByRole("link", { name: fileName })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  await adaContext.close();
+  await bobContext.close();
+});
+
+test("a folder is sent as a zip", async ({ browser }) => {
+  const adaUser = uniqueUser("ada");
+  const bobUser = uniqueUser("bob");
+  const adaContext = await browser.newContext();
+  const bobContext = await browser.newContext();
+  const ada = await adaContext.newPage();
+  const bob = await bobContext.newPage();
+
+  await signup(ada, adaUser);
+  await signup(bob, bobUser);
+
+  await ada.getByRole("link", { name: "general" }).click();
+  await expect(ada.getByText(/Waiting for peers|Connected ·/)).toBeVisible({
+    timeout: 20_000,
+  });
+  const folder = await mkdtemp(path.join(tmpdir(), "chat-refine-"));
+  await writeFile(path.join(folder, "one.txt"), "alpha");
+  await writeFile(path.join(folder, "two.txt"), "beta");
+  await ada.getByLabel("Attach folder").setInputFiles(folder);
+  await expect(ada.getByText(/Attached .+\.zip/)).toBeVisible();
+  await ada.getByRole("button", { name: "Send" }).click();
+  await expect(ada.getByRole("main").getByRole("link", { name: /\.zip$/ })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  await bob.getByRole("link", { name: /general/ }).click();
+  await expect(bob.getByRole("main").getByRole("link", { name: /\.zip$/ })).toBeVisible({
     timeout: 15_000,
   });
 

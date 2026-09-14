@@ -4,13 +4,13 @@ Late alpha. Snapshot of two-way SFU video (queued renegotiation + autoplay tiles
 
 This page is the in-repo export of the Cursor project-status canvas. The live canvas is a local Cursor file (not in git). Anyone with the repo can read this markdown.
 
-On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, rooms, history, unread, files, signaling, and the SFU. Live text stays on a WebRTC data-channel mesh.
+On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, rooms, history, unread, files, signaling, and the SFU. Live text prefers a WebRTC data-channel mesh; an open thread also refetches history on activity.
 
 **Core loop is complete on `develop`.** Sign up, rooms and DMs, server-backed history, inbox unread, attachments (file or folder from one Attach control), notifications, profile (bio, status, avatars, theme, visibility), Telegram-style people search, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. Production serve and TURN are not done.
 
 | Maturity | Shared + server lines | Playwright e2e last push | SFU call cap |
 | --- | --- | --- | --- |
-| Late alpha | 90% | 10 / 10 | 16 peers |
+| Late alpha | 90% | 12 / 12 | 16 peers |
 
 ## Architecture
 
@@ -34,8 +34,8 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | Layer | Role | Does not do |
 | --- | --- | --- |
 | Solid + Vite | Views, session, text mesh, SFU link, local history cache | Authoritative persist |
-| Nest HTTP | Auth, rooms, DMs, messages, files, profile, ICE, ticket | Relay live text |
-| Nest WS | Join, SDP, ICE, activity, call roster + cap, SFU signaling | Inspect data-channel payloads |
+| Nest HTTP | Auth, rooms, DMs, messages, files, profile, ICE, ticket | Push live text unsolicited |
+| Nest WS | Join, SDP, ICE, activity (inbox + open-thread history pull), call roster + cap, SFU signaling | Inspect data-channel payloads |
 | Nest SFU (werift) | One PC per caller; forward audio/video to other callers | Forward live text |
 | lowdb | Profiles, rooms, messages, files, read cursors | Call media or concurrent writers |
 | WebRTC mesh | Live text to the room | Call audio or video |
@@ -78,7 +78,7 @@ flowchart LR
 | Flow | Detail |
 | --- | --- |
 | Directory | Unread, last message, rooms, DMs, create, find |
-| Thread | Server history, sided bubbles, Attach, Enter to send (works on LAN HTTP) |
+| Thread | Server history, sided bubbles, Attach (file or folder zip), Enter to send; open thread refetches on activity |
 | Call | Join / mute / camera / leave; SFU + roster + cap 16; remote video autoplays |
 | Profile | Bio, status, 36 avatars or upload, theme, visibility |
 | Notify | Opt-in desktop alerts while another tab is focused |
@@ -101,7 +101,7 @@ Shared and server stay behind the V8 gate. Client mesh helpers and SFU lock help
 
 ### Shared + server V8 coverage vs fail thresholds
 
-Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 115 unit/API tests, 10 Playwright specs.
+Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 119 unit/API tests, 12 Playwright specs.
 
 | Metric | Measured % | Fail threshold % |
 | --- | --- | --- |
@@ -113,7 +113,7 @@ Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are e
 | Practice | How it shows up |
 | --- | --- |
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
-| Hooks | pre-commit Vitest; pre-push Playwright (10 specs, HTTPS Vite, ignore self-signed cert) |
+| Hooks | pre-commit Vitest; pre-push Playwright (12 specs, HTTPS Vite, ignore self-signed cert) |
 | Complexity | ESLint complexity max 10 |
 | Git Flow | `develop` is integration; `main` is 51 commits behind; no leftover feature branches |
 | Docs | README and `docs/` update in the same change as the code |

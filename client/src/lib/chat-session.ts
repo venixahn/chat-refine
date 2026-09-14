@@ -58,6 +58,16 @@ const metaOf = (file?: File): MessageAttachment | undefined =>
       }
     : undefined;
 
+const mergeRemoteHistory = async (
+  conversationId: string,
+  apply: (item: ChatMessage) => void,
+) => {
+  const remote = await listMessages(conversationId);
+  if (remote.ok) {
+    remote.data.forEach(apply);
+  }
+};
+
 const fromPeerMessage = (
   fromUserId: string,
   event: Extract<P2pEvent, { type: "message" }>,
@@ -339,6 +349,11 @@ export const startChatSession = async (input: {
         input.onCallError(event.message);
       }
     },
+    activity: (event) => {
+      if (event.conversationId === input.conversationId) {
+        void mergeRemoteHistory(input.conversationId, apply);
+      }
+    },
   };
 
   const subscription = signal.events$.subscribe((event) => {
@@ -427,7 +442,7 @@ export const startChatSession = async (input: {
           });
       if (!posted.ok) {
         input.onStatus("Could not save that message");
-        return;
+        throw new Error("Could not save that message");
       }
       apply(posted.data);
       mesh.broadcast({
