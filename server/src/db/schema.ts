@@ -114,14 +114,13 @@ export const seededRooms = (data: DbSchema, now: string): Conversation[] => {
   ];
 };
 
-export const normalizeDb = (data: DbSchema): DbSchema => ({
-  ...data,
-  messages: data.messages ?? [],
-  readCursors: data.readCursors ?? [],
-  profiles: data.profiles.map(fillProfile),
-  conversations: data.conversations.map(fillRoom),
-  conversationMembers: data.conversationMembers.map(fillMember),
-});
+export const normalizeDb = (data: DbSchema): void => {
+  data.messages ??= [];
+  data.readCursors ??= [];
+  data.profiles = data.profiles.map(fillProfile);
+  data.conversations = data.conversations.map(fillRoom);
+  data.conversationMembers = data.conversationMembers.map(fillMember);
+};
 
 export type PublicProfile = {
   id: string;

@@ -10,24 +10,8 @@ const repoDataPath = join(
   "data/db.json",
 );
 
-const applyDb = (data: DbSchema): void => {
-  const next = normalizeDb(data);
-  data.profiles = next.profiles;
-  data.conversations = seededRooms(next, new Date().toISOString());
-  data.conversationMembers = next.conversationMembers;
-  data.messages = next.messages;
-  data.readCursors = next.readCursors;
-};
-
-const writeThrough = async <A>(
-  db: Awaited<ReturnType<typeof JSONFilePreset<DbSchema>>>,
-  fn: (data: DbSchema) => A,
-): Promise<A> => {
-  await db.read();
-  applyDb(db.data);
-  const result = fn(db.data);
-  await db.write();
-  return result;
+const seedRooms = (data: DbSchema): void => {
+  data.conversations = seededRooms(data, new Date().toISOString());
 };
 
 @Injectable()
@@ -39,7 +23,10 @@ export class DbService implements OnModuleInit {
     const filePath = process.env.CHAT_REFINE_DB_PATH ?? repoDataPath;
     await mkdir(dirname(filePath), { recursive: true });
     this.db = await JSONFilePreset<DbSchema>(filePath, emptyDb());
-    await this.update(() => undefined);
+    await this.update((data) => {
+      normalizeDb(data);
+      seedRooms(data);
+    });
   }
 
   snapshot(): DbSchema {
@@ -48,8 +35,20 @@ export class DbService implements OnModuleInit {
 
   update<A>(fn: (data: DbSchema) => A): Promise<A> {
     const run = this.tail.then(
-      async () => writeThrough(this.db, fn),
-      async () => writeThrough(this.db, fn),
+      async () => {
+        await this.db.read();
+        normalizeDb(this.db.data);
+        const result = fn(this.db.data);
+        await this.db.write();
+        return result;
+      },
+      async () => {
+        await this.db.read();
+        normalizeDb(this.db.data);
+        const result = fn(this.db.data);
+        await this.db.write();
+        return result;
+      },
     );
     this.tail = run.then(
       () => undefined,
