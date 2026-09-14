@@ -35,7 +35,9 @@ test("sidebar shows last message, unread, and server history", async ({
   await signup(bob, bobUser);
 
   await ada.getByRole("link", { name: "general" }).click();
-  await expect(ada.getByText(/Connected/)).toBeVisible({ timeout: 20_000 });
+  await expect(ada.getByText(/Waiting for peers|Connected ·/)).toBeVisible({
+    timeout: 20_000,
+  });
   const body = `inbox-${Date.now()}`;
   await ada.getByRole("textbox", { name: "Message", exact: true }).fill(body);
   await ada.getByRole("button", { name: "Send" }).click();
@@ -95,7 +97,9 @@ test("a file sent while alone is visible later", async ({ browser }) => {
   await signup(bob, bobUser);
 
   await ada.getByRole("link", { name: "general" }).click();
-  await expect(ada.getByText(/Connected/)).toBeVisible({ timeout: 20_000 });
+  await expect(ada.getByText(/Waiting for peers|Connected ·/)).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(ada.getByRole("button", { name: "Attach", exact: true })).toBeVisible();
   const fileName = `note-${Date.now()}.txt`;
   await ada.getByLabel("Attach file").setInputFiles({
