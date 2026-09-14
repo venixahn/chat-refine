@@ -1,16 +1,16 @@
 # chat-refine status
 
-Late alpha. Snapshot of `develop` @ `66691e8`, 13 Sep 2026.
+Late alpha. Snapshot of the inbox-UX landing on `develop`, 13 Sep 2026.
 
 This page is the in-repo export of the Cursor project-status canvas. The live canvas is a local Cursor file (not in git). Anyone with the repo can read this markdown.
 
 On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, rooms, history, unread, files, signaling, and the SFU. Live text stays on a WebRTC data-channel mesh.
 
-**Core loop is complete on `develop`.** Sign up, rooms and DMs, server-backed history, inbox unread, small files, notifications, profile edit, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. `main` is still 39 commits behind (rooms/signaling only). Production serve and TURN are not done.
+**Core loop is complete on `develop`.** Sign up, rooms and DMs, server-backed history, inbox unread, any-size files and folders, notifications, profile (bio, status, avatars, theme, visibility), Telegram-style people search, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. Production serve and TURN are not done.
 
 | Maturity | Shared + server lines | Playwright e2e last push | SFU call cap |
 | --- | --- | --- | --- |
-| Late alpha | 89% | 9 / 9 | 16 peers |
+| Late alpha | 90% | 10 / 10 | 16 peers |
 
 ## Architecture
 
@@ -29,7 +29,7 @@ flowchart LR
   sfu --> peer
 ```
 
-Solid lines in the canvas: control plane, persisted history, and the SFU upload. Dashed: WebRTC candidates, P2P text, and forwarded call tracks. Nest stores message bodies and small files in `data/db.json`. Each caller has one `RTCPeerConnection` to Nest.
+Solid lines in the canvas: control plane, persisted history, and the SFU upload. Dashed: WebRTC candidates, P2P text, and forwarded call tracks. Nest stores message bodies in `data/db.json` and file bytes in `data/files/`. Each caller has one `RTCPeerConnection` to Nest.
 
 | Layer | Role | Does not do |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 
 ## What ships today
 
-15 of 20 product surfaces shipped.
+16 of 20 product surfaces shipped.
 
 | Surface | State | Limit |
 | --- | --- | --- |
@@ -50,8 +50,9 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | Groups, DMs, directory | Done | No invites or roles |
 | P2P text + server history | Done | Also cached in localStorage |
 | Inbox unread + last message | Done | Activity frames, no open thread needed |
-| Files / images (~1 MB) | Done | Stored on this server |
-| Notify + profile (name, avatar) | Done | Notifications are opt-in |
+| Files and folders (any type) | Done | Bytes on disk; no size cap |
+| Profile, avatars, preferences | Done | 36 catalog avatars or upload; theme + visibility |
+| Notify | Done | Notifications are opt-in |
 | A/V join, mute, camera | Done | Media through Nest SFU, cap 16 |
 | Nest SFU (werift) | Done | Serialized offers; one upload per caller |
 | Mobile stack + markdown | Done | Bold, italic, code, http(s) links |
@@ -77,9 +78,9 @@ flowchart LR
 | Flow | Detail |
 | --- | --- |
 | Directory | Unread, last message, rooms, DMs, create, find |
-| Thread | Server history, files, Enter to send, typing |
+| Thread | Server history, sided bubbles, files, Enter to send |
 | Call | Join / mute / camera / leave; SFU + roster + cap 16 |
-| Profile | Click your name; display name and avatar |
+| Profile | Bio, status, 36 avatars or upload, theme, visibility |
 | Notify | Opt-in desktop alerts while another tab is focused |
 | Phone | Rooms first; thread + Rooms back link |
 
@@ -100,19 +101,19 @@ Shared and server stay behind the V8 gate. Client mesh helpers and SFU lock help
 
 ### Shared + server V8 coverage vs fail thresholds
 
-Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 101 unit/API tests, 9 Playwright specs.
+Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 107 unit/API tests, 10 Playwright specs.
 
 | Metric | Measured % | Fail threshold % |
 | --- | --- | --- |
-| Lines | 89.47 | 80 |
-| Statements | 89.47 | 80 |
-| Functions | 88.79 | 80 |
-| Branches | 87.77 | 70 |
+| Lines | 89.7 | 80 |
+| Statements | 89.7 | 80 |
+| Functions | 88.53 | 80 |
+| Branches | 85.82 | 70 |
 
 | Practice | How it shows up |
 | --- | --- |
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
-| Hooks | pre-commit Vitest; pre-push Playwright (9 specs) |
+| Hooks | pre-commit Vitest; pre-push Playwright (10 specs) |
 | Complexity | ESLint complexity max 10 |
 | Git Flow | `develop` is integration; `main` is 39 commits behind; no leftover feature branches |
 | Docs | README and `docs/` update in the same change as the code |
@@ -140,6 +141,7 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 - [x] In-repo wiki under `docs/` (native GitHub Wiki still locked)
 - [x] Unit-test mesh-media helpers (full `RTCPeerConnection` still e2e-only)
 - [x] Nest SFU: one upload per caller, werift forward, cap 16
+- [x] Files/folders without a size cap; opposite-side bubbles; fuzzy people search; richer profile + prefs
 - [ ] Release: merge `develop` into `main` so production matches history, inbox, and SFU calls
 - [ ] Production shape: Nest serves `client/dist`, HTTPS, secure cookies, required `SESSION_SECRET`
 - [ ] Documented TURN path plus a clearer Connecting-peers failure

@@ -4,10 +4,11 @@ import { Effect } from "effect";
 import { findFirst } from "fp-ts/Array";
 import { isNone, isSome } from "fp-ts/Option";
 import { pipe } from "fp-ts/function";
-import type {
-  LoginInput,
-  SignupInput,
-  UpdateProfileInput,
+import {
+  defaultPreferences,
+  type LoginInput,
+  type SignupInput,
+  type UpdateProfileInput,
 } from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
 import {
@@ -47,7 +48,10 @@ export class AuthService {
         username: input.username,
         passwordHash,
         displayName: input.displayName,
-        avatarUrl: null,
+        avatarUrl: "/avatars/01.svg",
+        bio: "",
+        status: "",
+        preferences: defaultPreferences(),
         createdAt: new Date().toISOString(),
       };
       const persisted = yield* Effect.tryPromise({
@@ -113,6 +117,18 @@ export class AuthService {
           }
           if (input.avatarUrl !== undefined) {
             found.value.avatarUrl = input.avatarUrl;
+          }
+          if (input.bio !== undefined) {
+            found.value.bio = input.bio;
+          }
+          if (input.status !== undefined) {
+            found.value.status = input.status;
+          }
+          if (input.preferences) {
+            found.value.preferences = {
+              ...found.value.preferences,
+              ...input.preferences,
+            };
           }
           return toPublicProfile(found.value);
         }),

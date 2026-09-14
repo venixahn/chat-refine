@@ -23,13 +23,24 @@ export {
   type MdNode,
 } from "./markdown.ts";
 export {
+  defaultPreferences,
   loginSchema,
   signupSchema,
   updateProfileSchema,
+  userPreferencesSchema,
   type LoginInput,
   type SignupInput,
   type UpdateProfileInput,
+  type UserPreferences,
 } from "./auth.ts";
+export { AVATAR_IDS, avatarPath, type AvatarId } from "./avatars.ts";
+export {
+  hasSubsequence,
+  peopleScore,
+  rankPeople,
+  type SearchablePerson,
+} from "./people.ts";
+export { crc32, zipStore, type ZipEntry } from "./zip-store.ts";
 export {
   upsertMessage,
   messageOrd,

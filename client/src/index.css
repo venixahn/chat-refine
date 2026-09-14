@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-:root {
+:root,
+[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0e1116;
   --surface: #171b22;
@@ -8,6 +9,16 @@
   --text: #e8edf5;
   --muted: #93a0b5;
   --accent: #7dd3c4;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --line: #d5dbe6;
+  --text: #141820;
+  --muted: #5b6578;
+  --accent: #0f766e;
 }
 
 html,

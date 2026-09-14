@@ -1,9 +1,14 @@
+import { defaultPreferences, type UserPreferences } from "@chat-refine/shared";
+
 export type Profile = {
   id: string;
   username: string;
   passwordHash: string;
   displayName: string;
   avatarUrl: string | null;
+  bio: string;
+  status: string;
+  preferences: UserPreferences;
   createdAt: string;
 };
 
@@ -24,7 +29,8 @@ export type StoredAttachment = {
   name: string;
   mime: string;
   size: number;
-  data: string;
+  data?: string;
+  blobId?: string;
 };
 
 export type StoredMessage = {
@@ -61,6 +67,11 @@ export const emptyDb = (): DbSchema => ({
 export const normalizeDb = (data: DbSchema): void => {
   data.messages ??= [];
   data.readCursors ??= [];
+  for (const profile of data.profiles) {
+    profile.bio ??= "";
+    profile.status ??= "";
+    profile.preferences ??= defaultPreferences();
+  }
 };
 
 export type PublicProfile = {
@@ -68,6 +79,9 @@ export type PublicProfile = {
   username: string;
   displayName: string;
   avatarUrl: string | null;
+  bio: string;
+  status: string;
+  preferences: UserPreferences;
 };
 
 export const toPublicProfile = (profile: Profile): PublicProfile => ({
@@ -75,4 +89,7 @@ export const toPublicProfile = (profile: Profile): PublicProfile => ({
   username: profile.username,
   displayName: profile.displayName,
   avatarUrl: profile.avatarUrl,
+  bio: profile.bio ?? "",
+  status: profile.status ?? "",
+  preferences: profile.preferences ?? defaultPreferences(),
 });

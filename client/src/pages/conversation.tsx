@@ -25,7 +25,7 @@ import {
   type ChatSession,
   type RemoteMedia,
 } from "../lib/chat-session.ts";
-import { readFilePayload } from "../lib/file.ts";
+import { zipFolderFiles } from "../lib/file.ts";
 import { getRoom, messageFileUrl } from "../lib/rooms-api.ts";
 
 const isImage = (mime: string) => mime.startsWith("image/");
@@ -125,17 +125,44 @@ export const ConversationPage = () => {
     });
   });
 
+  let scroller: HTMLElement | undefined;
+
+  createEffect(() => {
+    messages();
+    queueMicrotask(() => {
+      if (scroller) {
+        scroller.scrollTop = scroller.scrollHeight;
+      }
+    });
+  });
+
   const sendDraft = async () => {
     const pending = file();
     setSendError(null);
     try {
-      const attachment = pending ? await readFilePayload(pending) : undefined;
-      await session()?.send({ body: draft(), attachment });
+      await session()?.send({ body: draft(), file: pending ?? undefined });
       setDraft("");
       setFile(null);
     } catch (error) {
       setSendError(
         error instanceof Error ? error.message : "Could not send that message",
+      );
+    }
+  };
+
+  const pickFiles = async (list: FileList | null, folder: boolean) => {
+    if (!list || list.length === 0) {
+      return;
+    }
+    try {
+      setFile(
+        folder && list.length > 1
+          ? await zipFolderFiles([...list])
+          : list[0] ?? null,
+      );
+    } catch (error) {
+      setSendError(
+        error instanceof Error ? error.message : "Could not pack that folder",
       );
     }
   };
@@ -228,7 +255,12 @@ export const ConversationPage = () => {
       <Show when={roomError()}>
         <p class="px-6 py-4 text-red-300">{roomError()}</p>
       </Show>
-      <ol class="flex-1 space-y-3 overflow-y-auto px-6 py-5">
+      <ol
+        ref={(node) => {
+          scroller = node;
+        }}
+        class="flex flex-1 flex-col gap-3 overflow-y-auto px-6 py-5"
+      >
         <For
           each={messages()}
           fallback={
@@ -239,7 +271,13 @@ export const ConversationPage = () => {
           }
         >
           {(item) => (
-            <li class="max-w-xl rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+            <li
+              class={`max-w-[min(36rem,85%)] rounded-2xl border px-4 py-3 ${
+                item.fromUserId === profile()?.id
+                  ? "ml-auto border-[var(--accent)]/40 bg-[var(--accent)]/10"
+                  : "mr-auto border-[var(--line)] bg-[var(--surface)]"
+              }`}
+            >
               <p class="text-xs text-[var(--muted)]">
                 {authors().get(item.fromUserId) ?? "Peer"}
               </p>
@@ -324,14 +362,27 @@ export const ConversationPage = () => {
             class="min-h-[3rem] flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
           />
           <label class="self-end rounded-full border border-[var(--line)] px-4 py-2 text-sm">
-            Attach
+            File
             <input
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain"
               aria-label="Attach file"
               class="sr-only"
               onChange={(event) => {
-                setFile(event.currentTarget.files?.[0] ?? null);
+                void pickFiles(event.currentTarget.files, false);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+          <label class="self-end rounded-full border border-[var(--line)] px-4 py-2 text-sm">
+            Folder
+            <input
+              type="file"
+              multiple
+              {...{ webkitdirectory: "", directory: "" }}
+              aria-label="Attach folder"
+              class="sr-only"
+              onChange={(event) => {
+                void pickFiles(event.currentTarget.files, true);
                 event.currentTarget.value = "";
               }}
             />

@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { Effect } from "effect";
 import type { ChatMessage, PostMessageInput } from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
 import type { StoredAttachment, StoredMessage } from "../db/schema.ts";
+import { FileStore } from "../files/file-store.ts";
 import {
   InvalidAttachment,
   MessageNotFound,
@@ -10,36 +12,10 @@ import {
 } from "./rooms.errors.ts";
 import { RoomsService, toPublicMessage } from "./rooms.service.ts";
 
-const ALLOWED_MIME = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-  "application/pdf",
-  "text/plain",
-]);
-
-const MAX_FILE_BYTES = 1_000_000;
-
-const decodedBytes = (data: string): number => {
-  try {
-    return Buffer.from(data, "base64").length;
-  } catch {
-    return Number.POSITIVE_INFINITY;
-  }
-};
-
-const storedAttachment = (
-  input: NonNullable<PostMessageInput["attachment"]>,
-): StoredAttachment | InvalidAttachment => {
-  if (!ALLOWED_MIME.has(input.mime)) {
-    return new InvalidAttachment();
-  }
-  const size = decodedBytes(input.data);
-  if (size < 1 || size > MAX_FILE_BYTES) {
-    return new InvalidAttachment();
-  }
-  return { name: input.name, mime: input.mime, size, data: input.data };
+export type UploadedFile = {
+  name: string;
+  mime: string;
+  buffer: Buffer;
 };
 
 const byTimeThenId = (left: StoredMessage, right: StoredMessage): number => {
@@ -49,11 +25,21 @@ const byTimeThenId = (left: StoredMessage, right: StoredMessage): number => {
     : left.clientMessageId.localeCompare(right.clientMessageId);
 };
 
+const decodedBytes = (data: string): Buffer | undefined => {
+  try {
+    const bytes = Buffer.from(data, "base64");
+    return bytes.length > 0 ? bytes : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 @Injectable()
 export class MessagesService {
   constructor(
     @Inject(DbService) private readonly db: DbService,
     @Inject(RoomsService) private readonly rooms: RoomsService,
+    @Inject(FileStore) private readonly files: FileStore,
   ) {}
 
   list(
@@ -78,44 +64,37 @@ export class MessagesService {
     conversationId: string,
     input: PostMessageInput,
   ): Effect.Effect<ChatMessage, NotAMember | InvalidAttachment | Error> {
-    if (!this.rooms.isMember(userId, conversationId)) {
-      return Effect.fail(new NotAMember());
-    }
-    const attachment = input.attachment
-      ? storedAttachment(input.attachment)
+    const uploaded = input.attachment
+      ? this.fromBase64(input.attachment)
       : undefined;
-    if (attachment instanceof InvalidAttachment) {
-      return Effect.fail(attachment);
+    if (uploaded instanceof InvalidAttachment) {
+      return Effect.fail(uploaded);
     }
-    const db = this.db;
-    return Effect.tryPromise({
-      try: () =>
-        db.update((data) => {
-          const existing = data.messages.find(
-            (item) => item.clientMessageId === input.clientMessageId,
-          );
-          if (existing) {
-            return toPublicMessage(existing);
-          }
-          const stored: StoredMessage = {
-            clientMessageId: input.clientMessageId,
-            conversationId,
-            fromUserId: userId,
-            body: input.body,
-            createdAt: input.createdAt ?? new Date().toISOString(),
-            attachment,
-          };
-          data.messages.push(stored);
-          return toPublicMessage(stored);
-        }),
-      catch: (error) => new Error(String(error)),
+    return this.save(userId, conversationId, {
+      clientMessageId: input.clientMessageId,
+      body: input.body,
+      createdAt: input.createdAt,
+      file: uploaded,
     });
+  }
+
+  postUpload(
+    userId: string,
+    conversationId: string,
+    input: {
+      clientMessageId: string;
+      body: string;
+      createdAt?: string;
+      file?: UploadedFile;
+    },
+  ): Effect.Effect<ChatMessage, NotAMember | InvalidAttachment | Error> {
+    return this.save(userId, conversationId, input);
   }
 
   markRead(
     userId: string,
     conversationId: string,
-  ): Effect.Effect<void, NotAMember | Error> {
+    ): Effect.Effect<void, NotAMember | Error> {
     if (!this.rooms.isMember(userId, conversationId)) {
       return Effect.fail(new NotAMember());
     }
@@ -142,7 +121,10 @@ export class MessagesService {
     userId: string,
     conversationId: string,
     messageId: string,
-  ): Effect.Effect<StoredAttachment, NotAMember | MessageNotFound> {
+  ): Effect.Effect<
+    { attachment: StoredAttachment; bytes: Buffer },
+    NotAMember | MessageNotFound | Error
+  > {
     if (!this.rooms.isMember(userId, conversationId)) {
       return Effect.fail(new NotAMember());
     }
@@ -156,6 +138,104 @@ export class MessagesService {
     if (!found?.attachment) {
       return Effect.fail(new MessageNotFound());
     }
-    return Effect.succeed(found.attachment);
+    const attachment = found.attachment;
+    return Effect.tryPromise({
+      try: () => this.readBytes(attachment).then((bytes) => ({ attachment, bytes })),
+      catch: () => new MessageNotFound(),
+    });
+  }
+
+  private fromBase64(
+    input: NonNullable<PostMessageInput["attachment"]>,
+  ): UploadedFile | InvalidAttachment {
+    const buffer = decodedBytes(input.data);
+    if (!buffer) {
+      return new InvalidAttachment();
+    }
+    return {
+      name: input.name,
+      mime: input.mime || "application/octet-stream",
+      buffer,
+    };
+  }
+
+  private save(
+    userId: string,
+    conversationId: string,
+    input: {
+      clientMessageId: string;
+      body: string;
+      createdAt?: string;
+      file?: UploadedFile;
+    },
+  ): Effect.Effect<ChatMessage, NotAMember | InvalidAttachment | Error> {
+    if (!this.rooms.isMember(userId, conversationId)) {
+      return Effect.fail(new NotAMember());
+    }
+    if (!input.body.trim() && !input.file) {
+      return Effect.fail(new InvalidAttachment());
+    }
+    const db = this.db;
+    const files = this.files;
+    return Effect.tryPromise({
+      try: async () => {
+        const attachment = input.file
+          ? await this.persistFile(files, input.file)
+          : undefined;
+        return db.update((data) => {
+          const existing = data.messages.find(
+            (item) => item.clientMessageId === input.clientMessageId,
+          );
+          if (existing) {
+            return toPublicMessage(existing);
+          }
+          const stored: StoredMessage = {
+            clientMessageId: input.clientMessageId,
+            conversationId,
+            fromUserId: userId,
+            body: input.body,
+            createdAt: input.createdAt ?? new Date().toISOString(),
+            attachment,
+          };
+          data.messages.push(stored);
+          return toPublicMessage(stored);
+        });
+      },
+      catch: (error) =>
+        error instanceof InvalidAttachment ? error : new Error(String(error)),
+    });
+  }
+
+  private async persistFile(
+    files: FileStore,
+    file: UploadedFile,
+  ): Promise<StoredAttachment> {
+    if (file.buffer.length < 1) {
+      throw new InvalidAttachment();
+    }
+    const blobId = randomUUID();
+    await files.put(blobId, file.buffer);
+    return {
+      name: file.name.slice(0, 240) || "file",
+      mime: file.mime || "application/octet-stream",
+      size: file.buffer.length,
+      blobId,
+    };
+  }
+
+  private async readBytes(attachment: StoredAttachment): Promise<Buffer> {
+    if (attachment.blobId) {
+      const bytes = await this.files.get(attachment.blobId);
+      if (bytes) {
+        return bytes;
+      }
+    }
+    if (attachment.data) {
+      const bytes = decodedBytes(attachment.data);
+      if (bytes) {
+        return bytes;
+      }
+    }
+    throw new MessageNotFound();
   }
 }

@@ -146,6 +146,14 @@ describe("messages API", () => {
     expect(file.status).toBe(200);
     expect(file.headers["content-type"]).toMatch(/image\/png/);
     expect(file.body).toBeInstanceOf(Buffer);
+
+    const uploaded = await agent
+      .post("/api/rooms/room-general/messages/upload")
+      .field("clientMessageId", "msg-ada-upload-01")
+      .field("body", "")
+      .attach("file", Buffer.from("folder-bytes"), "notes.zip");
+    expect(uploaded.status).toBe(201);
+    expect(uploaded.body.attachment.name).toBe("notes.zip");
   });
 
   it("rejects empty bodies, bad files, and outsiders", async () => {
@@ -161,16 +169,16 @@ describe("messages API", () => {
     });
     expect(empty.status).toBe(400);
 
-    const badFile = await adaAgent.post("/api/rooms/room-general/messages").send({
-      clientMessageId: "msg-ada-badfile1",
+    const anyFile = await adaAgent.post("/api/rooms/room-general/messages").send({
+      clientMessageId: "msg-ada-anyfile1",
       body: "",
       attachment: {
-        name: "x.exe",
-        mime: "application/x-msdownload",
+        name: "notes.bin",
+        mime: "application/octet-stream",
         data: pngDot,
       },
     });
-    expect(badFile.status).toBe(400);
+    expect(anyFile.status).toBe(201);
 
     const denied = await bobAgent
       .post(`/api/rooms/${privateRoom.body.id}/messages`)

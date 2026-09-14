@@ -6,10 +6,12 @@ Working on `develop`:
 - Room directory, group create/join, 1:1 DMs
 - Authenticated signaling and ICE list
 - P2P text plus server-stored history
+- Sent messages on the right, received on the left
 - Unread counts and last-message previews
-- Small file / image sharing (about 1 MB)
+- File and folder sharing (any type; folders become a zip)
 - Desktop notifications (opt-in **Notify**)
-- Edit display name and avatar
+- Profile: display name, bio, status, 36 built-in avatars or upload
+- Preferences: theme (dark / light / system) and search visibility
 - Light markdown in messages
 - 1:1 and group audio/video via Nest SFU (join/leave, mute, camera, cap 16)
 - Stacked mobile layout

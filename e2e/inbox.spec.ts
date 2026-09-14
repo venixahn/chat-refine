@@ -55,6 +55,23 @@ test("sidebar shows last message, unread, and server history", async ({
   await bobContext.close();
 });
 
+test("people search matches a display-name fragment", async ({ browser }) => {
+  const adaUser = uniqueUser("ada");
+  const bobUser = uniqueUser("bob");
+  const adaContext = await browser.newContext();
+  const bobContext = await browser.newContext();
+  const ada = await adaContext.newPage();
+  const bob = await bobContext.newPage();
+  await signup(ada, adaUser);
+  await signup(bob, bobUser);
+  await ada.getByLabel("Find people").fill("bob");
+  await expect(
+    ada.getByRole("button", { name: new RegExp(bobUser.displayName) }),
+  ).toBeVisible();
+  await adaContext.close();
+  await bobContext.close();
+});
+
 test("profile display name can be edited", async ({ page }) => {
   const user = uniqueUser("ada");
   await signup(page, user);

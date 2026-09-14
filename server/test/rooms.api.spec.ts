@@ -171,8 +171,23 @@ describe("rooms API", () => {
     const filtered = await agent.get("/api/users").query({ q: "ba" });
     expect(filtered.body).toHaveLength(1);
 
+    const byName = await agent.get("/api/users").query({ q: "bark" });
+    expect(byName.body[0]?.username).toBe("bob");
+
     const empty = await agent.get("/api/users").query({ q: "zzz" });
     expect(empty.body).toHaveLength(0);
+  });
+
+  it("hides people who chose not to appear in search", async () => {
+    const adaAgent = request.agent(app.getHttpServer());
+    const bobAgent = request.agent(app.getHttpServer());
+    await adaAgent.post("/api/auth/signup").send(ada);
+    await bobAgent.post("/api/auth/signup").send(bob);
+    await bobAgent
+      .patch("/api/auth/me")
+      .send({ preferences: { visibility: "hidden" } });
+    const listed = await adaAgent.get("/api/users");
+    expect(listed.body).toEqual([]);
   });
 
   it("forbids joining a missing room", async () => {

@@ -11,22 +11,25 @@ export const createGroupSchema = z.object({
     .regex(/^[a-zA-Z0-9 _-]+$/),
 });
 
-export const openDmSchema = z.object({
-  username: z
-    .string()
-    .min(3)
-    .max(32)
-    .regex(/^[a-zA-Z0-9_]+$/),
-});
+export const openDmSchema = z.union([
+  z.object({ userId: z.string().min(1).max(80) }),
+  z.object({
+    username: z
+      .string()
+      .min(3)
+      .max(32)
+      .regex(/^[a-zA-Z0-9_]+$/),
+  }),
+]);
 
 export const peopleQuerySchema = z.object({
-  q: z.string().max(32).optional(),
+  q: z.string().max(64).optional(),
 });
 
 export const attachmentInputSchema = z.object({
-  name: z.string().min(1).max(180),
-  mime: z.string().min(3).max(80),
-  data: z.string().min(8).max(1_400_000),
+  name: z.string().min(1).max(240),
+  mime: z.string().min(3).max(180),
+  data: z.string().min(8).max(8_000_000),
 });
 
 export const postMessageSchema = z

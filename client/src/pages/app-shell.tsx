@@ -1,4 +1,4 @@
-import { previewOf } from "@chat-refine/shared";
+import { defaultPreferences, previewOf, rankPeople } from "@chat-refine/shared";
 import { A, useLocation, useNavigate } from "@solidjs/router";
 import {
   For,
@@ -16,8 +16,11 @@ import {
   updateProfile,
   type PublicProfile,
 } from "../lib/auth-api.ts";
+import { ProfileEditor } from "../components/profile-editor.tsx";
+import { PeopleSearch } from "../components/people-search.tsx";
 import { readAvatarDataUrl } from "../lib/file.ts";
 import { startInbox } from "../lib/inbox.ts";
+import { applyTheme } from "../lib/theme.ts";
 import {
   createGroup,
   joinGroup,
@@ -89,6 +92,13 @@ export const AppShell = (props: { children?: JSX.Element }) => {
   const [paletteQuery, setPaletteQuery] = createSignal("");
   const [editingProfile, setEditingProfile] = createSignal(false);
   const [displayDraft, setDisplayDraft] = createSignal("");
+  const [bioDraft, setBioDraft] = createSignal("");
+  const [statusDraft, setStatusDraft] = createSignal("");
+  const [themeDraft, setThemeDraft] = createSignal(defaultPreferences().theme);
+  const [visibilityDraft, setVisibilityDraft] = createSignal(
+    defaultPreferences().visibility,
+  );
+  const [onlineDraft, setOnlineDraft] = createSignal(true);
   const [profileError, setProfileError] = createSignal<string | null>(null);
   const [notifyState, setNotifyState] = createSignal(
     typeof Notification === "undefined" ? "denied" : Notification.permission,
@@ -134,6 +144,13 @@ export const AppShell = (props: { children?: JSX.Element }) => {
   });
 
   createEffect(() => {
+    const prefs = profile()?.preferences;
+    if (prefs) {
+      applyTheme(prefs.theme);
+    }
+  });
+
+  createEffect(() => {
     const selfId = profile()?.id;
     if (!selfId) {
       return;
@@ -161,26 +178,45 @@ export const AppShell = (props: { children?: JSX.Element }) => {
   });
 
   const openProfile = () => {
-    setDisplayDraft(profile()?.displayName ?? "");
+    const current = profile();
+    if (!current) {
+      return;
+    }
+    setDisplayDraft(current.displayName);
+    setBioDraft(current.bio);
+    setStatusDraft(current.status);
+    setThemeDraft(current.preferences.theme);
+    setVisibilityDraft(current.preferences.visibility);
+    setOnlineDraft(current.preferences.showOnline);
     setProfileError(null);
     setEditingProfile(true);
   };
 
+  const profilePatch = (avatarUrl?: string | null) => ({
+    displayName: displayDraft().trim(),
+    bio: bioDraft(),
+    status: statusDraft(),
+    preferences: {
+      theme: themeDraft(),
+      visibility: visibilityDraft(),
+      showOnline: onlineDraft(),
+    },
+    ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+  });
+
   const saveProfile = async (avatarUrl?: string | null) => {
-    const trimmed = displayDraft().trim();
-    if (!trimmed) {
+    const patch = profilePatch(avatarUrl);
+    if (!patch.displayName) {
       setProfileError("Display name is required.");
       return;
     }
-    const result = await updateProfile({
-      displayName: trimmed,
-      ...(avatarUrl !== undefined ? { avatarUrl } : {}),
-    });
+    const result = await updateProfile(patch);
     if (!result.ok) {
       setProfileError("Could not update your profile.");
       return;
     }
     mutate(result.data);
+    applyTheme(result.data.preferences.theme);
     setEditingProfile(false);
   };
 
@@ -232,23 +268,20 @@ export const AppShell = (props: { children?: JSX.Element }) => {
     goTo(result.data);
   };
 
+  const peopleMatches = () =>
+    rankPeople(dmName(), people() ?? []).slice(0, 8);
+
   const onOpenDm: JSX.EventHandler<HTMLFormElement, SubmitEvent> = async (
     event,
   ) => {
     event.preventDefault();
     setError(null);
-    const result = await openDm(dmName().trim());
-    if (!result.ok) {
-      setError(
-        result.status === 404
-          ? "No one on this server has that username."
-          : "Could not open that conversation.",
-      );
+    const first = peopleMatches()[0];
+    if (first) {
+      await openPerson(first);
       return;
     }
-    setDmName("");
-    refresh();
-    goTo(result.data);
+    setError("No one on this server matches that search.");
   };
 
   const onJoin = async (room: DirectoryRoom) => {
@@ -271,18 +304,17 @@ export const AppShell = (props: { children?: JSX.Element }) => {
     const roomHits = (rooms() ?? []).filter(
       (room) => !query || matches(room.title, query),
     );
-    const peopleHits = (people() ?? []).filter(
-      (person) =>
-        !query ||
-        matches(person.username, query) ||
-        matches(person.displayName, query),
-    );
+    const peopleHits = query
+      ? rankPeople(query, people() ?? [])
+      : (people() ?? []);
     return { roomHits, peopleHits };
   };
 
   const openPerson = async (person: PublicProfile) => {
-    const result = await openDm(person.username);
+    const result = await openDm({ userId: person.id });
     if (result.ok) {
+      setDmName("");
+      setPaletteOpen(false);
       refresh();
       goTo(result.data);
     }
@@ -333,56 +365,35 @@ export const AppShell = (props: { children?: JSX.Element }) => {
                 <p class="text-sm text-[var(--muted)]">
                   @{profileHandle(profile())}
                 </p>
+                <Show when={profile()?.status}>
+                  {(status) => (
+                    <p class="mt-1 text-sm text-[var(--muted)]">{status()}</p>
+                  )}
+                </Show>
                 <p class="mt-1 text-xs text-[var(--accent)]">Edit profile</p>
               </button>
             }
           >
-            <form
-              class="mt-2 flex flex-col gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void saveProfile();
-              }}
-            >
-              <label class="text-xs tracking-[0.18em] text-[var(--muted)] uppercase">
-                Display name
-                <input
-                  value={displayDraft()}
-                  onInput={(event) => setDisplayDraft(event.currentTarget.value)}
-                  class="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm normal-case tracking-normal text-[var(--text)]"
-                />
-              </label>
-              <label class="text-xs text-[var(--muted)]">
-                Avatar
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  aria-label="Avatar"
-                  class="mt-2 block w-full text-sm normal-case"
-                  onChange={(event) => {
-                    void onAvatar(event.currentTarget.files?.[0]);
-                  }}
-                />
-              </label>
-              <Show when={profileError()}>
-                <p class="text-sm text-red-300">{profileError()}</p>
-              </Show>
-              <div class="flex gap-2">
-                <button
-                  type="submit"
-                  class="rounded-full bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--bg)]"
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  class="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm"
-                  onClick={() => setEditingProfile(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+            <ProfileEditor
+              displayName={displayDraft()}
+              bio={bioDraft()}
+              status={statusDraft()}
+              theme={themeDraft()}
+              visibility={visibilityDraft()}
+              showOnline={onlineDraft()}
+              avatarUrl={profile()?.avatarUrl}
+              error={profileError()}
+              onDisplayName={setDisplayDraft}
+              onBio={setBioDraft}
+              onStatus={setStatusDraft}
+              onTheme={setThemeDraft}
+              onVisibility={setVisibilityDraft}
+              onShowOnline={setOnlineDraft}
+              onAvatar={(url) => void saveProfile(url)}
+              onUpload={(file) => void onAvatar(file)}
+              onSave={() => void saveProfile()}
+              onCancel={() => setEditingProfile(false)}
+            />
           </Show>
         </div>
         <div class="flex-1 space-y-6 overflow-y-auto px-4 py-5">
@@ -452,23 +463,14 @@ export const AppShell = (props: { children?: JSX.Element }) => {
               Create room
             </button>
           </form>
-          <form class="flex flex-col gap-2" onSubmit={onOpenDm}>
-            <label class="text-xs tracking-[0.18em] text-[var(--muted)] uppercase">
-              Find username
-              <input
-                value={dmName()}
-                onInput={(event) => setDmName(event.currentTarget.value)}
-                placeholder="username"
-                class="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm normal-case tracking-normal text-[var(--text)]"
-              />
-            </label>
-            <button
-              type="submit"
-              class="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm"
-            >
-              Open DM
-            </button>
-          </form>
+          <PeopleSearch
+            query={dmName()}
+            error={error()}
+            matches={peopleMatches()}
+            onQuery={setDmName}
+            onPick={(person) => void openPerson(person)}
+            onSubmit={onOpenDm}
+          />
           <Show when={error()}>
             <p class="text-sm text-red-300">{error()}</p>
           </Show>
