@@ -96,7 +96,7 @@ export class RoomsController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<RoomView> {
     const result = await Effect.runPromise(
-      Effect.either(this.rooms.openDm(viewer(request).id, body.username)),
+      Effect.either(this.rooms.openDm(viewer(request).id, body)),
     );
     if (result._tag === "Left") {
       return unwrapRoom(Effect.fail(result.left));

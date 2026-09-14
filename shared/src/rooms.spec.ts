@@ -28,8 +28,9 @@ describe("createGroupSchema", () => {
 });
 
 describe("openDmSchema", () => {
-  it("requires a username", () => {
+  it("accepts a username or a user id", () => {
     expect(openDmSchema.safeParse({ username: "ada" }).success).toBe(true);
+    expect(openDmSchema.safeParse({ userId: "user-ada" }).success).toBe(true);
     expect(openDmSchema.safeParse({ username: "ab" }).success).toBe(false);
   });
 });
@@ -66,7 +67,7 @@ describe("peopleQuerySchema", () => {
   it("accepts an optional query", () => {
     expect(peopleQuerySchema.safeParse({}).success).toBe(true);
     expect(peopleQuerySchema.safeParse({ q: "ada" }).success).toBe(true);
-    expect(peopleQuerySchema.safeParse({ q: "x".repeat(33) }).success).toBe(
+    expect(peopleQuerySchema.safeParse({ q: "x".repeat(65) }).success).toBe(
       false,
     );
   });

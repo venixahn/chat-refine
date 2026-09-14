@@ -31,9 +31,13 @@ describe("signupSchema", () => {
 });
 
 describe("updateProfileSchema", () => {
-  it("requires a display name or avatar", () => {
+  it("requires at least one profile field", () => {
     expect(
       updateProfileSchema.safeParse({ displayName: "Ada Prime" }).success,
+    ).toBe(true);
+    expect(updateProfileSchema.safeParse({ bio: "Maths" }).success).toBe(true);
+    expect(
+      updateProfileSchema.safeParse({ avatarUrl: "/avatars/01.svg" }).success,
     ).toBe(true);
     expect(updateProfileSchema.safeParse({}).success).toBe(false);
     expect(

@@ -12,9 +12,9 @@ Working today:
 - Authenticated ICE list (`GET /api/ice`) — Google STUN by default, or `ICE_SERVERS`
 - P2P text over WebRTC data channels, plus server-stored history (and local cache)
 - Unread counts and last-message previews in the room list
-- Small file / image sharing (about 1 MB; stored on this server)
+- File and folder sharing (any type/size; stored on disk, not in `db.json`)
 - Desktop notifications when a peer messages you (opt-in)
-- Edit display name and avatar
+- Profile: display name, bio, status, catalog or uploaded avatar, theme, search visibility
 - Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
 - 1:1 and group audio/video via a Nest SFU (join/leave, mute, camera; one upload per caller)
 - Landing, auth pages, and `/app` / `/app/c/:id`
@@ -37,7 +37,7 @@ A/V cap is **16 peers** (`AV_MESH_CAP`). Each caller sends media to Nest; Nest f
 | Tests | Vitest, Supertest, Playwright, V8 coverage |
 | Quality | ESLint, Husky (`pre-commit` tests, `pre-push` e2e) |
 
-No OAuth. Default ICE uses Google’s public STUN (`stun.l.google.com` and stun1–4). Live text stays on a WebRTC data-channel mesh. Call audio and video go through Nest’s SFU. Message bodies and small files are also written to `data/db.json` so history, unread, and other devices stay in sync. Optional: your own TURN / coturn via `ICE_SERVERS`.
+No OAuth. Default ICE uses Google’s public STUN (`stun.l.google.com` and stun1–4). Live text stays on a WebRTC data-channel mesh. Call audio and video go through Nest’s SFU. Message bodies live in `data/db.json`; file and folder bytes go to `data/files/`. Optional: your own TURN / coturn via `ICE_SERVERS`.
 
 ## Requirements
 
@@ -66,7 +66,7 @@ npm run dev
 - Client: [http://127.0.0.1:5173](http://127.0.0.1:5173) (also on your LAN IP)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Join a call from the conversation header — your camera and mic go to Nest, which forwards them. Click your name to edit display name or avatar. Use **Notify** if you want desktop alerts while another tab is focused.
+Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Your messages sit on the right; others on the left. Join a call from the conversation header — your camera and mic go to Nest, which forwards them. Click your name to edit bio, status, theme, visibility, or pick one of 36 avatars (or upload your own). Use **Notify** if you want desktop alerts while another tab is focused.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 

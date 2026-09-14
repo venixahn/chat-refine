@@ -14,11 +14,17 @@ import {
 import { Subject } from "rxjs";
 import { debounceTime } from "rxjs/operators";
 import type { PublicProfile } from "./auth-api.ts";
-import type { FilePayload } from "./file.ts";
 import { loadHistory, persistMessage } from "./local-history.ts";
 import { createMesh, stubPeer, type Mesh } from "./mesh.ts";
 import { createSfuLink } from "./sfu-link.ts";
-import { listIce, listMessages, markRead, postMessage, signalTicket } from "./rooms-api.ts";
+import {
+  listIce,
+  listMessages,
+  markRead,
+  postMessage,
+  postMessageFile,
+  signalTicket,
+} from "./rooms-api.ts";
 import { connectSignal } from "./signal-client.ts";
 
 export type RemoteMedia = {
@@ -28,7 +34,7 @@ export type RemoteMedia = {
 
 export type OutgoingMessage = {
   body: string;
-  attachment?: FilePayload;
+  file?: File;
 };
 
 export type ChatSession = {
@@ -41,12 +47,12 @@ export type ChatSession = {
   close: () => void;
 };
 
-const metaOf = (file?: FilePayload): MessageAttachment | undefined =>
+const metaOf = (file?: File): MessageAttachment | undefined =>
   file
     ? {
         name: file.name,
-        mime: file.mime,
-        size: Math.floor((file.data.length * 3) / 4),
+        mime: file.type || "application/octet-stream",
+        size: file.size,
       }
     : undefined;
 
@@ -411,17 +417,23 @@ export const startChatSession = async (input: {
   return {
     send: async (outgoing) => {
       const trimmed = outgoing.body.trim();
-      if (!trimmed && !outgoing.attachment) {
+      if (!trimmed && !outgoing.file) {
         return;
       }
       const createdAt = new Date().toISOString();
       const clientMessageId = crypto.randomUUID();
-      const posted = await postMessage(input.conversationId, {
-        clientMessageId,
-        body: trimmed,
-        createdAt,
-        attachment: outgoing.attachment,
-      });
+      const posted = outgoing.file
+        ? await postMessageFile(input.conversationId, {
+            clientMessageId,
+            body: trimmed,
+            createdAt,
+            file: outgoing.file,
+          })
+        : await postMessage(input.conversationId, {
+            clientMessageId,
+            body: trimmed,
+            createdAt,
+          });
       if (!posted.ok) {
         input.onStatus("Could not save that message");
         return;
@@ -433,9 +445,7 @@ export const startChatSession = async (input: {
         conversationId: input.conversationId,
         body: trimmed,
         createdAt,
-        attachment: outgoing.attachment
-          ? { ...metaOf(outgoing.attachment), data: outgoing.attachment.data }
-          : posted.data.attachment,
+        attachment: posted.data.attachment ?? metaOf(outgoing.file),
       });
       signal.send({
         type: "activity",

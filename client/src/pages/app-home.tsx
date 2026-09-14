@@ -6,7 +6,7 @@ export const AppHomePage = () => (
     <h2 class="text-3xl font-semibold">Pick a room</h2>
     <p class="max-w-md text-[var(--muted)]">
       History lives on this server so you can pick up a thread on another
-      device. Live text and calls still travel peer-to-peer.
+      device. Live text stays on a WebRTC mesh; calls go through Nest’s SFU.
     </p>
   </main>
 );

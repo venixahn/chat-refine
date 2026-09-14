@@ -30,10 +30,10 @@ export const createGroup = (name: string) =>
 export const joinGroup = (id: string) =>
   request<RoomView>(`/api/rooms/${id}/join`, { method: "POST" });
 
-export const openDm = (username: string) =>
+export const openDm = (target: { username: string } | { userId: string }) =>
   request<RoomView>("/api/rooms/dm", {
     method: "POST",
-    body: JSON.stringify({ username }),
+    body: JSON.stringify(target),
   });
 
 export const listPeople = (q?: string) => {
@@ -54,6 +54,21 @@ export const postMessage = (id: string, body: PostMessageInput) =>
     method: "POST",
     body: JSON.stringify(body),
   });
+
+export const postMessageFile = (
+  id: string,
+  input: { clientMessageId: string; body: string; createdAt: string; file: File },
+) => {
+  const form = new FormData();
+  form.set("clientMessageId", input.clientMessageId);
+  form.set("body", input.body);
+  form.set("createdAt", input.createdAt);
+  form.set("file", input.file, input.file.name);
+  return request<ChatMessage>(`/api/rooms/${id}/messages/upload`, {
+    method: "POST",
+    body: form,
+  });
+};
 
 export const markRead = (id: string) =>
   request<{ ok: true }>(`/api/rooms/${id}/read`, { method: "POST" });

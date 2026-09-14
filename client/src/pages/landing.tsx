@@ -7,8 +7,8 @@ export const LandingPage = () => (
     </p>
     <h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">chat-refine</h1>
     <p class="text-lg text-[var(--muted)]">
-      Sign in on this server. Talk and call through WebRTC — not through the
-      host.
+      Sign in on this server. Live text is peer-to-peer. Call media goes
+      through Nest’s SFU.
     </p>
     <div class="flex flex-wrap gap-3">
       <A

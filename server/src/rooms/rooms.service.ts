@@ -6,8 +6,10 @@ import { isNone, isSome } from "fp-ts/Option";
 import { pipe } from "fp-ts/function";
 import {
   dmPairKey,
+  rankPeople,
   type ChatMessage,
   type CreateGroupInput,
+  type OpenDmInput,
 } from "@chat-refine/shared";
 import { DbService } from "../db/db.service.ts";
 import {
@@ -48,10 +50,31 @@ const isMemberOf = (
       member.conversationId === conversationId && member.userId === userId,
   );
 
-const matchesQuery = (profile: PublicProfile, needle: string) =>
-  needle.length === 0 ||
-  profile.username.toLowerCase().includes(needle) ||
-  profile.displayName.toLowerCase().includes(needle);
+const shareDm = (data: DbSchema, left: string, right: string): boolean =>
+  data.conversations.some((room) => {
+    if (room.kind !== "dm") {
+      return false;
+    }
+    return (
+      isMemberOf(data.conversationMembers, room.id, left) &&
+      isMemberOf(data.conversationMembers, room.id, right)
+    );
+  });
+
+const visibleTo = (
+  data: DbSchema,
+  viewerId: string,
+  profile: PublicProfile,
+): boolean => {
+  const visibility = profile.preferences?.visibility ?? "everyone";
+  if (visibility === "hidden") {
+    return false;
+  }
+  if (visibility === "contacts") {
+    return shareDm(data, viewerId, profile.id);
+  }
+  return true;
+};
 
 const firstText = (...values: Array<string | undefined>): string =>
   values.find((value) => Boolean(value)) ?? "Direct message";
@@ -258,11 +281,15 @@ export class RoomsService {
     });
   }
 
-  openDm(userId: string, username: string) {
+  openDm(userId: string, input: OpenDmInput) {
     const db = this.db;
     const peer = pipe(
       db.snapshot().profiles,
-      findFirst((profile) => profile.username === username),
+      findFirst((profile) =>
+        "userId" in input
+          ? profile.id === input.userId
+          : profile.username === input.username,
+      ),
     );
     if (isNone(peer)) {
       return Effect.fail(new UserNotFound());
@@ -285,7 +312,7 @@ export class RoomsService {
             id: randomUUID(),
             kind: "dm",
             slug: key,
-            name: username,
+            name: peer.value.username,
             createdAt: new Date().toISOString(),
           };
           data.conversations.push(room);
@@ -300,11 +327,11 @@ export class RoomsService {
   }
 
   listPeople(userId: string, query = ""): PublicProfile[] {
-    const needle = query.trim().toLowerCase();
-    return this.db
-      .snapshot()
-      .profiles.filter((profile) => profile.id !== userId)
+    const data = this.db.snapshot();
+    const visible = data.profiles
+      .filter((profile) => profile.id !== userId)
       .map(toPublicProfile)
-      .filter((profile) => matchesQuery(profile, needle));
+      .filter((profile) => visibleTo(data, userId, profile));
+    return rankPeople(query, visible);
   }
 }

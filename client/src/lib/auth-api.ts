@@ -1,18 +1,27 @@
+import type { UserPreferences } from "@chat-refine/shared";
+
 export type PublicProfile = {
   id: string;
   username: string;
   displayName: string;
   avatarUrl: string | null;
+  bio: string;
+  status: string;
+  preferences: UserPreferences;
 };
 
 export const request = async <T>(
   path: string,
   init?: RequestInit,
 ): Promise<{ ok: true; data: T } | { ok: false; status: number }> => {
+  const headers = new Headers(init?.headers);
+  if (init?.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   const response = await fetch(path, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...init?.headers },
     ...init,
+    headers,
   });
   if (!response.ok) {
     return { ok: false, status: response.status };
@@ -44,6 +53,9 @@ export const me = () => request<PublicProfile>("/api/auth/me");
 export const updateProfile = (body: {
   displayName?: string;
   avatarUrl?: string | null;
+  bio?: string;
+  status?: string;
+  preferences?: Partial<UserPreferences>;
 }) =>
   request<PublicProfile>("/api/auth/me", {
     method: "PATCH",

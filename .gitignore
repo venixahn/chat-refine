@@ -3,6 +3,7 @@ dist
 build
 coverage
 data/db.json
+data/files
 !data/.gitkeep
 .env
 *.log

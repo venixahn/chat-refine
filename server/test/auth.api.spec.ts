@@ -106,9 +106,19 @@ describe("auth API", () => {
     await agent.post("/api/auth/signup").send(validSignup);
     const updated = await agent
       .patch("/api/auth/me")
-      .send({ displayName: "Ada Prime" });
+      .send({
+        displayName: "Ada Prime",
+        bio: "Maths",
+        status: "Around",
+        avatarUrl: "/avatars/12.svg",
+        preferences: { theme: "light", visibility: "hidden" },
+      });
     expect(updated.status).toBe(200);
     expect(updated.body.displayName).toBe("Ada Prime");
+    expect(updated.body.bio).toBe("Maths");
+    expect(updated.body.status).toBe("Around");
+    expect(updated.body.avatarUrl).toBe("/avatars/12.svg");
+    expect(updated.body.preferences.theme).toBe("light");
     const me = await agent.get("/api/auth/me");
     expect(me.body.displayName).toBe("Ada Prime");
   });
