@@ -36,7 +36,7 @@ const matches = (value: string, query: string) =>
   value.toLowerCase().includes(query.toLowerCase());
 
 const asideClass = (thread: boolean) =>
-  `flex w-full shrink-0 flex-col border-r border-[var(--line)] bg-[var(--surface)] md:w-72 ${
+  `flex w-full shrink-0 flex-col border-r border-[var(--line)] bg-[var(--sidebar)] md:w-64 ${
     thread ? "hidden md:flex" : "flex"
   }`;
 
@@ -57,23 +57,32 @@ const notifyActivity = (preview: string, conversationId: string): void => {
   new Notification("New message", { body: preview });
 };
 
-const RoomRow = (props: { room: RoomView }) => (
+const RoomRow = (props: { room: RoomView; active: boolean }) => (
   <A
     href={`/app/c/${props.room.id}`}
-    class="flex items-start justify-between gap-2 rounded-lg px-3 py-2 text-sm hover:bg-[var(--bg)]"
+    class={`flex items-start justify-between gap-2 rounded-md px-2 py-1.5 text-sm ${
+      props.active ? "bg-[var(--bg)]" : "hover:bg-[var(--bg)]/70"
+    } ${props.room.unreadCount > 0 ? "font-semibold" : ""}`}
   >
     <span class="min-w-0">
-      <span class="block truncate">{props.room.title}</span>
+      <span class="flex items-baseline gap-1 truncate">
+        <Show when={props.room.kind === "group"}>
+          <span aria-hidden class="font-normal text-[var(--muted)]">
+            #
+          </span>
+        </Show>
+        {props.room.title}
+      </span>
       <Show when={props.room.lastMessage}>
         {(message) => (
-          <span class="block truncate text-xs text-[var(--muted)]">
+          <span class="block truncate text-xs font-normal text-[var(--muted)]">
             {previewOf(message())}
           </span>
         )}
       </Show>
     </span>
     <Show when={props.room.unreadCount > 0}>
-      <span class="shrink-0 rounded-full bg-[var(--accent)] px-2 py-0.5 text-xs text-[var(--bg)]">
+      <span class="shrink-0 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-xs font-medium text-[var(--bg)]">
         {props.room.unreadCount}
       </span>
     </Show>
@@ -344,39 +353,48 @@ export const AppShell = (props: { children?: JSX.Element }) => {
   return (
     <div class="flex min-h-screen bg-[var(--bg)]">
       <aside class={asideClass(inThread())}>
-        <div class="border-b border-[var(--line)] px-5 py-5">
-          <p class="text-xs tracking-[0.2em] text-[var(--accent)] uppercase">
-            Signed in
-          </p>
+        <div class="border-b border-[var(--line)] px-4 py-3">
+          <p class="mb-2 text-sm font-bold">chat-refine</p>
           <Show
             when={editingProfile()}
             fallback={
               <button
                 type="button"
-                class="mt-2 text-left"
+                class="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-[var(--bg)]/70"
                 onClick={openProfile}
               >
-                <Show when={profile()?.avatarUrl}>
+                <Show
+                  when={profile()?.avatarUrl}
+                  fallback={
+                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--line)] text-xs font-medium">
+                      {(profileName(profile())[0] ?? "?").toUpperCase()}
+                    </span>
+                  }
+                >
                   {(url) => (
                     <img
                       src={url()}
                       alt=""
-                      class="mb-2 h-12 w-12 rounded-full object-cover"
+                      class="h-8 w-8 rounded-full object-cover"
                     />
                   )}
                 </Show>
-                <h1 class="text-2xl font-semibold">
-                  {profileName(profile())}
-                </h1>
-                <p class="text-sm text-[var(--muted)]">
-                  @{profileHandle(profile())}
-                </p>
-                <Show when={profile()?.status}>
-                  {(status) => (
-                    <p class="mt-1 text-sm text-[var(--muted)]">{status()}</p>
-                  )}
-                </Show>
-                <p class="mt-1 text-xs text-[var(--accent)]">Edit profile</p>
+                <span class="min-w-0">
+                  <h1 class="truncate text-sm font-semibold">
+                    {profileName(profile())}
+                  </h1>
+                  <p class="truncate text-xs text-[var(--muted)]">
+                    @{profileHandle(profile())}
+                  </p>
+                  <Show when={profile()?.status}>
+                    {(status) => (
+                      <p class="truncate text-xs text-[var(--muted)]">
+                        {status()}
+                      </p>
+                    )}
+                  </Show>
+                  <p class="text-xs text-[var(--accent)]">Edit profile</p>
+                </span>
               </button>
             }
           >
@@ -402,30 +420,36 @@ export const AppShell = (props: { children?: JSX.Element }) => {
             />
           </Show>
         </div>
-        <div class="flex-1 space-y-6 overflow-y-auto px-4 py-5">
+        <div class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
           <section>
-            <h2 class="mb-2 text-xs tracking-[0.18em] text-[var(--muted)] uppercase">
-              Rooms
+            <h2 class="mb-1 px-2 text-xs font-semibold text-[var(--muted)]">
+              Channels
             </h2>
-            <ul class="flex flex-col gap-1">
+            <ul class="flex flex-col">
               <For each={groups()}>
                 {(room) => (
                   <li>
-                    <RoomRow room={room} />
+                    <RoomRow
+                      room={room}
+                      active={location.pathname === `/app/c/${room.id}`}
+                    />
                   </li>
                 )}
               </For>
             </ul>
           </section>
           <section>
-            <h2 class="mb-2 text-xs tracking-[0.18em] text-[var(--muted)] uppercase">
-              Direct
+            <h2 class="mb-1 px-2 text-xs font-semibold text-[var(--muted)]">
+              Direct messages
             </h2>
-            <ul class="flex flex-col gap-1">
-              <For each={dms()} fallback={<li class="px-3 text-sm text-[var(--muted)]">None yet</li>}>
+            <ul class="flex flex-col">
+              <For each={dms()} fallback={<li class="px-2 text-sm text-[var(--muted)]">None yet</li>}>
                 {(room) => (
                   <li>
-                    <RoomRow room={room} />
+                    <RoomRow
+                      room={room}
+                      active={location.pathname === `/app/c/${room.id}`}
+                    />
                   </li>
                 )}
               </For>
@@ -433,16 +457,16 @@ export const AppShell = (props: { children?: JSX.Element }) => {
           </section>
           <Show when={joinable().length > 0}>
             <section>
-              <h2 class="mb-2 text-xs tracking-[0.18em] text-[var(--muted)] uppercase">
+              <h2 class="mb-1 px-2 text-xs font-semibold text-[var(--muted)]">
                 Join
               </h2>
-              <ul class="flex flex-col gap-1">
+              <ul class="flex flex-col">
                 <For each={joinable()}>
                   {(room) => (
                     <li>
                       <button
                         type="button"
-                        class="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--bg)]"
+                        class="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-[var(--bg)]/70"
                         onClick={() => void onJoin(room)}
                       >
                         Join {room.title}
@@ -453,18 +477,18 @@ export const AppShell = (props: { children?: JSX.Element }) => {
               </ul>
             </section>
           </Show>
-          <form class="flex flex-col gap-2" onSubmit={onCreateGroup}>
-            <label class="text-xs tracking-[0.18em] text-[var(--muted)] uppercase">
-              New room
+          <form class="flex flex-col gap-2 px-1" onSubmit={onCreateGroup}>
+            <label class="text-xs font-semibold text-[var(--muted)]">
+              New channel
               <input
                 value={groupName()}
                 onInput={(event) => setGroupName(event.currentTarget.value)}
-                class="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm normal-case tracking-normal text-[var(--text)]"
+                class="mt-1 w-full rounded-md border border-[var(--line)] bg-[var(--bg)] px-2 py-1.5 text-sm font-normal text-[var(--text)]"
               />
             </label>
             <button
               type="submit"
-              class="rounded-full border border-[var(--line)] px-3 py-1.5 text-sm"
+              class="rounded-md border border-[var(--line)] px-3 py-1.5 text-sm"
             >
               Create room
             </button>
@@ -481,10 +505,10 @@ export const AppShell = (props: { children?: JSX.Element }) => {
             <p class="text-sm text-red-300">{error()}</p>
           </Show>
         </div>
-        <div class="flex items-center justify-between gap-2 border-t border-[var(--line)] px-4 py-4">
+        <div class="flex items-center justify-between gap-2 border-t border-[var(--line)] px-3 py-3">
           <button
             type="button"
-            class="text-sm text-[var(--muted)]"
+            class="text-xs text-[var(--muted)]"
             onClick={() => setPaletteOpen(true)}
           >
             Jump · Ctrl+K
@@ -492,7 +516,7 @@ export const AppShell = (props: { children?: JSX.Element }) => {
           <Show when={notifyState() === "default"}>
             <button
               type="button"
-              class="text-sm text-[var(--accent)]"
+              class="text-xs text-[var(--accent)]"
               onClick={() => void enableNotify()}
             >
               Notify
@@ -501,7 +525,7 @@ export const AppShell = (props: { children?: JSX.Element }) => {
           <button
             type="button"
             onClick={() => void signOut()}
-            class="rounded-full border border-[var(--line)] px-4 py-1.5 text-sm"
+            class="rounded-md border border-[var(--line)] px-2.5 py-1 text-xs"
           >
             Sign out
           </button>

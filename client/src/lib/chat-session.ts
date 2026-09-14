@@ -97,6 +97,7 @@ export const startChatSession = async (input: {
   onRemoteStreams: (streams: RemoteMedia[]) => void;
   onCallRoster: (roster: CallPresence[]) => void;
   onCallError: (message: string | null) => void;
+  onAttached?: (session: ChatSession) => void;
 }): Promise<ChatSession> => {
   const roster = new Map<string, SignalingPeer>();
   const typingUntil = new Map<string, number>();
@@ -364,8 +365,6 @@ export const startChatSession = async (input: {
     handle?.(event);
   });
 
-  signal.send({ type: "join", conversationId: input.conversationId });
-
   const typing$ = new Subject<void>();
   const typingSub = typing$.pipe(debounceTime(300)).subscribe(() => {
     mesh.broadcast({
@@ -421,7 +420,7 @@ export const startChatSession = async (input: {
     await addCameraTrack();
   };
 
-  return {
+  const session: ChatSession = {
     send: async (outgoing) => {
       const trimmed = outgoing.body.trim();
       if (!trimmed && !outgoing.file) {
@@ -528,4 +527,7 @@ export const startChatSession = async (input: {
       signal.close();
     },
   };
+  input.onAttached?.(session);
+  signal.send({ type: "join", conversationId: input.conversationId });
+  return session;
 };

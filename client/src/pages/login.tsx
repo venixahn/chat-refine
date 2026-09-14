@@ -53,7 +53,7 @@ export const LoginPage = () => {
         <button
           type="submit"
           disabled={pending()}
-          class="rounded-full bg-[var(--accent)] px-5 py-2.5 font-medium text-[var(--bg)] disabled:opacity-60"
+          class="rounded-lg bg-[var(--accent)] px-5 py-2.5 font-medium text-[var(--bg)] disabled:opacity-60"
         >
           Sign in
         </button>

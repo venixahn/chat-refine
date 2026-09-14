@@ -1,35 +1,36 @@
-import { A, useParams } from "@solidjs/router";
+import { useParams } from "@solidjs/router";
 import {
-  For,
-  Show,
   createEffect,
   createMemo,
   createResource,
   createSignal,
   onCleanup,
 } from "solid-js";
-import {
-  canAddAvPeer,
-  type CallPresence,
-  type ChatMessage,
-} from "@chat-refine/shared";
-import {
-  CallStage,
-  callCountLabel,
-  joinCallLabel,
-} from "../components/call-stage.tsx";
-import { Markdown } from "../components/markdown.tsx";
+import { canAddAvPeer, type CallPresence, type ChatMessage } from "@chat-refine/shared";
+import { ConversationPane } from "../components/conversation-pane.tsx";
 import { me } from "../lib/auth-api.ts";
 import {
   startChatSession,
   type ChatSession,
   type RemoteMedia,
 } from "../lib/chat-session.ts";
-import { AttachmentControl } from "../components/attachment-control.tsx";
 import { packAttachments } from "../lib/file.ts";
-import { getRoom, messageFileUrl } from "../lib/rooms-api.ts";
+import { callCountLabel } from "../lib/call-labels.ts";
+import { getRoom } from "../lib/rooms-api.ts";
 
-const isImage = (mime: string) => mime.startsWith("image/");
+const failText = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
+
+const postDraft = async (
+  session: ChatSession | undefined,
+  body: string,
+  file: File | null,
+): Promise<void> => {
+  if (!session) {
+    throw new Error("Still connecting — try Send again.");
+  }
+  await session.send({ body, file: file ?? undefined });
+};
 
 export const ConversationPage = () => {
   const params = useParams();
@@ -55,32 +56,30 @@ export const ConversationPage = () => {
     () => params.id,
     async (id) => {
       const result = await getRoom(id);
-      if (!result.ok) {
-        setRoomError("You cannot open this room.");
-        return null;
-      }
-      setRoomError(null);
-      return result.data;
+      setRoomError(result.ok ? null : "You cannot open this room.");
+      return result.ok ? result.data : null;
     },
   );
 
   const authors = createMemo(() => {
-    const map = new Map<string, string>();
+    const names = new Map<string, string>();
+    const avatars = new Map<string, string | null>();
     for (const member of room()?.members ?? []) {
-      map.set(member.id, member.displayName);
+      names.set(member.id, member.displayName);
+      avatars.set(member.id, member.avatarUrl);
     }
     const self = profile();
     if (self) {
-      map.set(self.id, self.displayName);
+      names.set(self.id, self.displayName);
+      avatars.set(self.id, self.avatarUrl);
     }
-    return map;
+    return { names, avatars };
   });
 
   const inCall = () => localStream() !== null;
   const othersInCall = () =>
     callRoster().filter((item) => item.userId !== profile()?.id);
   const callFull = () => !inCall() && !canAddAvPeer(othersInCall().length);
-  const showStage = () => inCall() || othersInCall().length > 0;
 
   createEffect(() => {
     const conversationId = params.id;
@@ -102,20 +101,19 @@ export const ConversationPage = () => {
       onRemoteStreams: setRemoteStreams,
       onCallRoster: setCallRoster,
       onCallError: setCallError,
-    })
-      .then((started) => {
+      onAttached: (started) => {
         if (cancelled) {
           started.close();
           return;
         }
         active = started;
         setSession(started);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setStatus("Could not connect signaling");
-        }
-      });
+      },
+    }).catch(() => {
+      if (!cancelled) {
+        setStatus("Could not connect signaling");
+      }
+    });
     onCleanup(() => {
       cancelled = true;
       active?.close();
@@ -137,242 +135,78 @@ export const ConversationPage = () => {
     });
   });
 
-  const sendDraft = async () => {
-    const current = session();
-    const pending = file();
-    setSendError(null);
-    if (!current) {
-      setSendError("Still connecting — try Send again.");
-      return;
-    }
-    try {
-      await current.send({ body: draft(), file: pending ?? undefined });
-      setDraft("");
-      setFile(null);
-    } catch (error) {
-      setSendError(
-        error instanceof Error ? error.message : "Could not send that message",
-      );
-    }
+  const sendDraft = () => {
+    void postDraft(session(), draft(), file())
+      .then(() => {
+        setDraft("");
+        setFile(null);
+        setSendError(null);
+      })
+      .catch((error: unknown) => {
+        setSendError(failText(error, "Could not send that message"));
+      });
   };
 
-  const pickFiles = async (list: FileList | null) => {
-    try {
-      setFile(await packAttachments(list));
-    } catch (error) {
-      setSendError(
-        error instanceof Error ? error.message : "Could not pack that folder",
-      );
-    }
+  const pickFiles = (list: FileList | null) => {
+    void packAttachments(list)
+      .then(setFile)
+      .catch((error: unknown) => {
+        setSendError(failText(error, "Could not pack that folder"));
+      });
   };
 
   return (
-    <main class="flex h-screen flex-col">
-      <header class="flex flex-col gap-3 border-b border-[var(--line)] px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
-        <div>
-          <A
-            href="/app"
-            class="mb-2 inline-block text-sm text-[var(--accent)] md:hidden"
-          >
-            Rooms
-          </A>
-          <h2 class="text-xl font-semibold">{room()?.title ?? "Conversation"}</h2>
-          <p class="text-sm text-[var(--muted)]">
-            {status()}
-            <Show when={callCountLabel(inCall(), othersInCall().length)}>
-              {(label) => ` · ${label()}`}
-            </Show>
-          </p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <Show
-            when={inCall()}
-            fallback={
-              <button
-                type="button"
-                class="rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--bg)] disabled:opacity-50"
-                disabled={callFull()}
-                onClick={() => {
-                  setMuted(false);
-                  void session()?.joinCall();
-                }}
-              >
-                {joinCallLabel(callFull())}
-              </button>
-            }
-          >
-            <button
-              type="button"
-              class="rounded-full border border-[var(--line)] px-4 py-1.5 text-sm"
-              onClick={() => {
-                setMuted((value) => {
-                  const next = !value;
-                  session()?.setMuted(next);
-                  return next;
-                });
-              }}
-            >
-              {muted() ? "Unmute" : "Mute"}
-            </button>
-            <button
-              type="button"
-              class="rounded-full border border-[var(--line)] px-4 py-1.5 text-sm"
-              onClick={() => {
-                const next = !cameraOn();
-                setCameraOn(next);
-                void session()?.setCamera(next);
-              }}
-            >
-              {cameraOn() ? "Camera off" : "Camera on"}
-            </button>
-            <button
-              type="button"
-              class="rounded-full border border-red-400/40 px-4 py-1.5 text-sm text-red-300"
-              onClick={() => {
-                setMuted(false);
-                setCameraOn(true);
-                void session()?.leaveCall();
-              }}
-            >
-              Leave call
-            </button>
-          </Show>
-        </div>
-      </header>
-      <Show when={callError()}>
-        <p class="px-6 py-2 text-sm text-red-300">{callError()}</p>
-      </Show>
-      <Show when={showStage()}>
-        <CallStage
-          selfId={profile()?.id}
-          localStream={localStream()}
-          remoteStreams={remoteStreams()}
-          roster={callRoster()}
-          names={authors()}
-        />
-      </Show>
-      <Show when={roomError()}>
-        <p class="px-6 py-4 text-red-300">{roomError()}</p>
-      </Show>
-      <ol
-        ref={(node) => {
-          scroller = node;
-        }}
-        class="flex flex-1 flex-col gap-3 overflow-y-auto px-6 py-5"
-      >
-        <For
-          each={messages()}
-          fallback={
-            <li class="text-sm text-[var(--muted)]">
-              No messages yet. History is stored on this server; live text also
-              travels over a WebRTC data channel.
-            </li>
-          }
-        >
-          {(item) => (
-            <li
-              class={`max-w-[min(36rem,85%)] rounded-2xl border px-4 py-3 ${
-                item.fromUserId === profile()?.id
-                  ? "ml-auto border-[var(--accent)]/40 bg-[var(--accent)]/10"
-                  : "mr-auto border-[var(--line)] bg-[var(--surface)]"
-              }`}
-            >
-              <p class="text-xs text-[var(--muted)]">
-                {authors().get(item.fromUserId) ?? "Peer"}
-              </p>
-              <Show when={item.body.trim().length > 0}>
-                <Markdown source={item.body} />
-              </Show>
-              <Show when={item.attachment}>
-                {(attached) => (
-                  <Show
-                    when={isImage(attached().mime)}
-                    fallback={
-                      <a
-                        href={messageFileUrl(
-                          item.conversationId,
-                          item.clientMessageId,
-                        )}
-                        class="mt-2 inline-block text-sm text-[var(--accent)]"
-                      >
-                        {attached().name}
-                      </a>
-                    }
-                  >
-                    <img
-                      src={messageFileUrl(
-                        item.conversationId,
-                        item.clientMessageId,
-                      )}
-                      alt={attached().name}
-                      class="mt-2 max-h-64 rounded-lg"
-                    />
-                  </Show>
-                )}
-              </Show>
-            </li>
-          )}
-        </For>
-      </ol>
-      <Show when={typing().length > 0}>
-        <p class="px-6 text-sm text-[var(--accent)]">
-          {typing().join(", ")} typing…
-        </p>
-      </Show>
-      <form
-        class="border-t border-[var(--line)] px-6 py-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void sendDraft();
-        }}
-      >
-        <Show when={file()}>
-          {(picked) => (
-            <p class="mb-2 text-sm text-[var(--muted)]">
-              Attached {picked().name}{" "}
-              <button
-                type="button"
-                class="text-[var(--accent)]"
-                onClick={() => setFile(null)}
-              >
-                Remove
-              </button>
-            </p>
-          )}
-        </Show>
-        <Show when={sendError()}>
-          <p class="mb-2 text-sm text-red-300">{sendError()}</p>
-        </Show>
-        <div class="flex gap-3">
-          <textarea
-            aria-label="Message"
-            value={draft()}
-            rows={2}
-            onInput={(event) => {
-              setDraft(event.currentTarget.value);
-              session()?.notifyTyping();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                void sendDraft();
-              }
-            }}
-            class="min-h-[3rem] flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
-          />
-          <AttachmentControl
-            onPick={(list) => {
-              void pickFiles(list);
-            }}
-          />
-          <button
-            type="submit"
-            class="self-end rounded-full bg-[var(--accent)] px-5 py-2 font-medium text-[var(--bg)]"
-          >
-            Send
-          </button>
-        </div>
-      </form>
-    </main>
+    <ConversationPane
+      room={room()}
+      status={status()}
+      callLabel={callCountLabel(inCall(), othersInCall().length)}
+      inCall={inCall()}
+      callFull={callFull()}
+      showStage={inCall() || othersInCall().length > 0}
+      callError={callError()}
+      roomError={roomError()}
+      selfId={profile()?.id}
+      localStream={localStream()}
+      remoteStreams={remoteStreams()}
+      roster={callRoster()}
+      names={authors().names}
+      avatars={authors().avatars}
+      messages={messages()}
+      typing={typing()}
+      draft={draft()}
+      file={file()}
+      sendError={sendError()}
+      muted={muted()}
+      cameraOn={cameraOn()}
+      session={session()}
+      setScroller={(node) => {
+        scroller = node;
+      }}
+      onJoin={() => {
+        setMuted(false);
+        void session()?.joinCall();
+      }}
+      onMute={() => {
+        setMuted((value) => {
+          const next = !value;
+          session()?.setMuted(next);
+          return next;
+        });
+      }}
+      onCamera={() => {
+        const next = !cameraOn();
+        setCameraOn(next);
+        void session()?.setCamera(next);
+      }}
+      onLeave={() => {
+        setMuted(false);
+        setCameraOn(true);
+        void session()?.leaveCall();
+      }}
+      onDraft={setDraft}
+      onSend={sendDraft}
+      onPick={pickFiles}
+      onRemoveFile={() => setFile(null)}
+    />
   );
 };
