@@ -89,7 +89,7 @@ flowchart LR
 | Gap | Why it hurts |
 | --- | --- |
 | Connecting peers… | STUN fail on symmetric NAT; no TURN wizard |
-| HTTPS for camera | Needed off localhost (LAN HTTP blocks getUserMedia) |
+| Self-signed Vite cert | Accept it once so LAN Join call can open camera/mic |
 | `main` behind `develop` | Production tag is rooms/signaling only |
 | lowdb JSON | One process; not durable under concurrent writers |
 | No edit / delete / invites | Messages and memberships are append-only |
@@ -113,7 +113,7 @@ Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are e
 | Practice | How it shows up |
 | --- | --- |
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
-| Hooks | pre-commit Vitest; pre-push Playwright (10 specs) |
+| Hooks | pre-commit Vitest; pre-push Playwright (10 specs, HTTPS Vite, ignore self-signed cert) |
 | Complexity | ESLint complexity max 10 |
 | Git Flow | `develop` is integration; `main` is 51 commits behind; no leftover feature branches |
 | Docs | README and `docs/` update in the same change as the code |

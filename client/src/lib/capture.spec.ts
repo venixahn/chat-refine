@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { callMediaError, captureLocal } from "./capture.ts";
 
 describe("callMediaError", () => {
-  it("asks for localhost or HTTPS off a secure context", () => {
-    vi.stubGlobal("window", { isSecureContext: false });
-    expect(callMediaError()).toMatch(/127\.0\.0\.1 or HTTPS/);
+  it("asks for HTTPS when getUserMedia is missing", () => {
+    vi.stubGlobal("navigator", {});
+    expect(callMediaError()).toMatch(/HTTPS/);
     vi.unstubAllGlobals();
   });
 
-  it("explains a permission denial", () => {
-    vi.stubGlobal("window", { isSecureContext: true });
+  it("explains a permission denial before mentioning HTTPS", () => {
+    vi.stubGlobal("window", { isSecureContext: false });
     vi.stubGlobal("navigator", {
       mediaDevices: { getUserMedia: vi.fn() },
     });

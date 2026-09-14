@@ -7,7 +7,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: "https://127.0.0.1:5173",
+    ignoreHTTPSErrors: true,
     trace: "on-first-retry",
     permissions: ["camera", "microphone"],
     launchOptions: {
@@ -32,7 +33,8 @@ export default defineConfig({
     },
     {
       command: "npm run dev -w client",
-      url: "http://127.0.0.1:5173",
+      url: "https://127.0.0.1:5173",
+      ignoreHTTPSErrors: true,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

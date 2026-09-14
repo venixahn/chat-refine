@@ -16,7 +16,7 @@ Working today:
 - Desktop notifications when a peer messages you (opt-in)
 - Profile: display name, bio, status, catalog or uploaded avatar, theme, search visibility
 - Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
-- 1:1 and group audio/video via a Nest SFU (join/leave, mute, camera; one upload per caller). Remote tiles mute the video element and play audio separately so both callers’ feeds autoplay. Join from **http://127.0.0.1:5173** or HTTPS.
+- 1:1 and group audio/video via a Nest SFU (join/leave, mute, camera; one upload per caller). Remote tiles mute the video element and play audio separately so both callers’ feeds autoplay. Dev is HTTPS — accept the cert, then Join call.
 - Landing, auth pages, and `/app` / `/app/c/:id`
 - Stacked mobile layout (rooms list, then thread with a Rooms back link)
 - Unit, API, coverage, and Playwright auth, chat, call, inbox, and mobile e2e
@@ -63,10 +63,10 @@ On Unix, use `cp .env.example .env`. Set `SESSION_SECRET` in `.env` before any r
 npm run dev
 ```
 
-- Client: [http://127.0.0.1:5173](http://127.0.0.1:5173) (also on your LAN IP)
+- Client: [https://127.0.0.1:5173](https://127.0.0.1:5173) (also on your LAN IP over HTTPS)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite binds all interfaces and proxies `/api` and `/ws` to Nest. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Your messages sit on the right; others on the left. Join a call from **http://127.0.0.1:5173** (or HTTPS) — browsers block camera and mic on a LAN hostname over HTTP. Click your name to edit bio, status, theme, visibility, or pick one of 36 avatars (or upload your own). Use **Notify** if you want desktop alerts while another tab is focused.
+Vite binds all interfaces, serves HTTPS, and proxies `/api` and `/ws` to Nest. Accept the self-signed certificate once. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Your messages sit on the right; others on the left. Join call works on that HTTPS origin, including a LAN hostname. Click your name to edit bio, status, theme, visibility, or pick one of 36 avatars (or upload your own). Use **Notify** if you want desktop alerts while another tab is focused.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 
@@ -100,9 +100,9 @@ Keep TURN credentials on this machine.
 
 Publishing the app is separate from ICE. Both browsers must reach this host for signup and `/ws`:
 
-1. Run `npm run dev` (Vite and Nest listen on all interfaces).
-2. Open the app as `http://<this-machine>:5173` on the LAN, or port-forward / tunnel 5173 (and 3000, or put both behind one reverse proxy).
-3. Camera and microphone need HTTPS except on `localhost`. A tunnel such as Cloudflare Tunnel or ngrok gives you that. Text chat can work over plain HTTP.
+1. Run `npm run dev` (Vite and Nest listen on all interfaces; Vite is HTTPS).
+2. Open the app as `https://<this-machine>:5173` on the LAN (accept the cert), or port-forward / tunnel 5173 (and 3000, or put both behind one reverse proxy).
+3. Camera and microphone work on that Vite HTTPS origin. A public tunnel such as Cloudflare Tunnel or ngrok is still useful if you want a trusted certificate.
 
 If peers never leave “Connecting peers…”, STUN could not punch the NAT — add TURN.
 

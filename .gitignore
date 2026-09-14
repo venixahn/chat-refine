@@ -12,4 +12,5 @@ playwright-report
 test-results
 blob-report
 .vite
+.vite-ssl
 *.tsbuildinfo
