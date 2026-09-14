@@ -3,7 +3,7 @@ import {
   type SignalingEvent,
   type SignalingFrame,
 } from "@chat-refine/shared";
-import { filter, fromEvent, map, Subject, take } from "rxjs";
+import { filter, fromEvent, map, Subject } from "rxjs";
 
 export type SignalClient = {
   events$: Subject<SignalingEvent>;
@@ -28,18 +28,17 @@ export const connectSignal = (ticket: string): SignalClient => {
   );
   const events$ = new Subject<SignalingEvent>();
   const ready = new Promise<void>((resolve, reject) => {
-    fromEvent(socket, "open").pipe(take(1)).subscribe(() => resolve());
-    fromEvent(socket, "error").pipe(take(1)).subscribe(() =>
+    socket.addEventListener("open", () => resolve());
+    socket.addEventListener("error", () =>
       reject(new Error("Signaling socket failed")),
     );
-    fromEvent<CloseEvent>(socket, "close")
-      .pipe(
-        take(1),
-        filter((event) => event.code === 4401),
-      )
-      .subscribe(() => reject(new Error("Signaling ticket rejected")));
+    socket.addEventListener("close", (event) => {
+      if (event.code === 4401) {
+        reject(new Error("Signaling ticket rejected"));
+      }
+    });
   });
-  fromEvent<MessageEvent>(socket, "message")
+  const messages = fromEvent<MessageEvent>(socket, "message")
     .pipe(
       map((event) => parseFrame(event.data)),
       filter((event): event is SignalingEvent => event !== undefined),
@@ -54,6 +53,7 @@ export const connectSignal = (ticket: string): SignalClient => {
       }
     },
     close: () => {
+      messages.unsubscribe();
       events$.complete();
       socket.close();
     },
