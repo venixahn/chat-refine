@@ -10,7 +10,7 @@ Working today:
 - Room directory, group create/join, and 1:1 DMs
 - Authenticated signaling WebSocket (`GET /api/signal/ticket`, then `/ws`)
 - Authenticated ICE list (`GET /api/ice`) — Google STUN by default, or `ICE_SERVERS`
-- P2P text over WebRTC data channels, plus server-stored history (and local cache)
+- P2P text over WebRTC data channels, plus server-stored history (and local cache). An open thread also refetches history on activity so room text still appears if the mesh is down.
 - Unread counts and last-message previews in the room list
 - Attachments: files or a folder from one Attach control (any type/size; stored on disk, not in `db.json`)
 - Desktop notifications when a peer messages you (opt-in)
@@ -66,7 +66,7 @@ npm run dev
 - Client: [https://127.0.0.1:5173](https://127.0.0.1:5173) (also on your LAN IP over HTTPS)
 - API: [http://127.0.0.1:3000/api/health](http://127.0.0.1:3000/api/health)
 
-Vite binds all interfaces, serves HTTPS, and proxies `/api` and `/ws` to Nest. Accept the self-signed certificate once. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. Your messages sit on the right; others on the left. Join call works on that HTTPS origin, including a LAN hostname. Click your name to edit bio, status, theme, visibility, or pick one of 36 avatars (or upload your own). Use **Notify** if you want desktop alerts while another tab is focused.
+Vite binds all interfaces, serves HTTPS, and proxies `/api` and `/ws` to Nest. Accept the self-signed certificate once. Create an account, then open `general` (or start a DM). Sending a message POSTs it for history, then fans it out over the data channel when a peer is connected. An open thread also refetches history when activity arrives. Folder attach packs the directory into a zip. Your messages sit on the right; others on the left. Join call works on that HTTPS origin, including a LAN hostname. Click your name to edit bio, status, theme, visibility, or pick one of 36 avatars (or upload your own). Use **Notify** if you want desktop alerts while another tab is focused.
 
 Production shape (later): `npm run build`, then Nest serves `client/dist` plus `/api` from one process.
 

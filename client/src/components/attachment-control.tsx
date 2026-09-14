@@ -21,6 +21,16 @@ export const AttachmentControl = (props: {
     props.onPick(list);
   };
 
+  const markDirectoryPicker = (input: HTMLInputElement | undefined) => {
+    if (!input) {
+      return;
+    }
+    input.setAttribute("webkitdirectory", "");
+    input.setAttribute("directory", "");
+    (input as HTMLInputElement & { webkitdirectory: boolean }).webkitdirectory =
+      true;
+  };
+
   return (
     <div
       ref={(node) => {
@@ -52,9 +62,9 @@ export const AttachmentControl = (props: {
         id="attach-folder"
         type="file"
         multiple
-        {...{ webkitdirectory: "", directory: "" }}
         aria-label="Attach folder"
         class="sr-only"
+        ref={markDirectoryPicker}
         onChange={(event) => {
           take(event.currentTarget.files);
           event.currentTarget.value = "";

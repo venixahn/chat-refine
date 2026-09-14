@@ -5,10 +5,10 @@ Working on `develop`:
 - Public signup / sign-in / sign-out
 - Room directory, group create/join, 1:1 DMs
 - Authenticated signaling and ICE list
-- P2P text plus server-stored history
+- P2P text plus server-stored history. An open room also pulls history when activity arrives, so text still shows if the data channel is not up yet.
 - Sent messages on the right, received on the left
 - Unread counts and last-message previews
-- Attachments: one Attach control for files or a folder (folders become a zip)
+- Attachments: one Attach control for files or a folder (the folder input sets `webkitdirectory`; folders become a zip)
 - Desktop notifications (opt-in **Notify**)
 - Profile: display name, bio, status, 36 built-in avatars or upload
 - Preferences: theme (dark / light / system) and search visibility
