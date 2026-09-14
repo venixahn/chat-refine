@@ -53,7 +53,7 @@ Solid edges are the control plane, persisted history, and the SFU upload. Dashed
 | Nest WS | Join, SDP, ICE, activity (inbox + open-thread history pull), call roster + cap, SFU signaling | Inspect data-channel payloads |
 | Nest SFU (werift) | One PC per caller; forward audio/video to other callers | Forward live text |
 | lowdb | Profiles, rooms, messages, files, read cursors | Call media or concurrent writers |
-| WebRTC mesh | Live text to the room | Call audio or video |
+| WebRTC mesh | Live text to the room (data channel only) | Call audio or video |
 
 ## Transport
 
@@ -70,7 +70,7 @@ Solid edges are the control plane, persisted history, and the SFU upload. Dashed
 
 Sending a message POSTs it for history, then fans it out over the data channel when a peer is online. An open thread also refetches that history when signaling join lands and when it sees an activity frame. Inbox activity frames update unread and last-message without an open thread.
 
-A/V uses a **selective forwarding unit** in Nest (`werift`). Each caller has one WebRTC connection to this server. Nest forwards that media to the other people in the call (cap `AV_MESH_CAP`, 16). Audio and video added in the same moment are offered together, and `sfu-route` mids are published after the SFU sets the local description. A caller that is still waiting for the SFU’s answer queues a later offer instead of rolling back. Live text still uses a peer-to-peer data-channel mesh. Call tiles keep the `<video>` muted (autoplay) and attach remote audio to a hidden `<audio>` element.
+A/V uses a **selective forwarding unit** in Nest (`werift`). Each caller has one WebRTC connection to this server. Nest forwards that media to the other people in the call (cap `AV_MESH_CAP`, 16). Audio and video added in the same moment are offered together, and `sfu-route` mids are published after the SFU sets the local description. A caller that is still waiting for the SFU’s answer queues a later offer instead of rolling back. Live text uses a peer-to-peer data-channel mesh; those peer connections do not carry audio or video. Call tiles keep the `<video>` muted (autoplay) and attach remote audio to a hidden `<audio>` element.
 
 ## Stack
 

@@ -16,6 +16,6 @@ Working on `develop`:
 - 1:1 and group audio/video via Nest SFU (join/leave, mute, camera, cap 16). Dev Vite is HTTPS so camera/mic work on localhost and LAN (accept the self-signed cert). Remote tiles mute the video element and play audio separately so autoplay is allowed.
 - Stacked mobile layout
 
-A/V cap is `AV_MESH_CAP` (16). Each caller uploads once; Nest forwards to the others. Text-only rooms can be larger.
+A/V cap is `AV_MESH_CAP` (16). Each caller uploads once; Nest forwards to the others. The text mesh is a data channel only — it does not attach camera or mic. Text-only rooms can be larger.
 
-Shipped vs open, coverage, and next work: [Project-status](Project-status.md). System diagram: [Architecture](Architecture.md).
+Shipped vs open: [Project-status](Project-status.md). Sequenced next work: [Roadmap](Roadmap.md). System diagram: [Architecture](Architecture.md).

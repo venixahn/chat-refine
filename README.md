@@ -120,6 +120,7 @@ Atomic commits, concise conventional messages (`feat:`, `fix:`, `test:`, `refact
 - In-repo docs: [`docs/Home.md`](docs/Home.md)
 - Architecture (system diagram): [`docs/Architecture.md`](docs/Architecture.md)
 - Project status: [`docs/Project-status.md`](docs/Project-status.md)
+- Roadmap (Now / Next / Later): [`docs/Roadmap.md`](docs/Roadmap.md)
 - GitHub Project: [chat-refine wiki](https://github.com/users/venix523/projects/1)
 
 GitHub Wiki pages are not available on a private free-plan repo, so the wiki lives in `docs/` and on that project.

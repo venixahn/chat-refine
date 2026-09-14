@@ -1,28 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
-
-const uniqueUser = (name: string) => {
-  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  return {
-    username: `${name}${suffix}`.slice(0, 32),
-    displayName: `${name} ${suffix}`.slice(0, 32),
-    password: "sufficient",
-  };
-};
-
-const signup = async (
-  page: Page,
-  user: { username: string; displayName: string; password: string },
-) => {
-  await page.goto("/signup");
-  await page.getByLabel("Username").fill(user.username);
-  await page.getByLabel("Display name").fill(user.displayName);
-  await page.getByLabel("Password").fill(user.password);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("heading", { name: user.displayName })).toBeVisible();
-};
+import { expect, test } from "@playwright/test";
+import { signup, uniqueUser } from "./helpers.ts";
 
 test("sidebar shows last message, unread, and server history", async ({
   browser,

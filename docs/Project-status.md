@@ -1,10 +1,10 @@
 # chat-refine status
 
-Late alpha. Snapshot of two-way SFU video (queued renegotiation + autoplay tiles) on `develop`, 13 Sep 2026.
+Late alpha. Snapshot of Slack-like thread, text-only mesh, and sequenced roadmap on `develop`, 14 Sep 2026.
 
-This page is the in-repo export of the Cursor project-status canvas. The live canvas is a local Cursor file (not in git). Anyone with the repo can read this markdown.
+This page is the in-repo export of the Cursor project-status canvas. The live canvas is a local Cursor file (not in git). Anyone with the repo can read this markdown. Sequenced next work: [Roadmap](Roadmap.md).
 
-On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, rooms, history, unread, files, signaling, and the SFU. Live text prefers a WebRTC data-channel mesh; an open thread also refetches history on activity.
+On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, rooms, history, unread, files, signaling, and the SFU. Live text prefers a WebRTC data-channel mesh (no A/V on those peer connections); an open thread also refetches history on activity.
 
 **Core loop is complete on `develop`.** Sign up, rooms and DMs, server-backed history, inbox unread, attachments (file or folder from one Attach control), notifications, profile (bio, status, avatars, theme, visibility), Telegram-style people search, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. Production serve and TURN are not done.
 
@@ -38,7 +38,7 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | Nest WS | Join, SDP, ICE, activity (inbox + open-thread history pull), call roster + cap, SFU signaling | Inspect data-channel payloads |
 | Nest SFU (werift) | One PC per caller; forward audio/video to other callers | Forward live text |
 | lowdb | Profiles, rooms, messages, files, read cursors | Call media or concurrent writers |
-| WebRTC mesh | Live text to the room | Call audio or video |
+| WebRTC mesh | Live text to the room (data channel only) | Call audio or video |
 
 ## What ships today
 
@@ -59,7 +59,7 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | Internet ICE (Google STUN) | Done on develop | Hard NAT still needs TURN |
 | In-repo wiki (`docs/`) | Done | Native GitHub Wiki locked on private free plan |
 | Production single process | Not wired | Nest does not yet serve `client/dist` |
-| Promote develop to main | Not done | `main` is 51 commits behind |
+| Promote develop to main | Not done | `main` is 71 commits behind `2cbf903` |
 
 ## UX
 
@@ -115,7 +115,7 @@ Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are e
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
 | Hooks | pre-commit Vitest; pre-push Playwright (12 specs, HTTPS Vite, ignore self-signed cert) |
 | Complexity | ESLint complexity max 10 |
-| Git Flow | `develop` is integration; `main` is 51 commits behind; no leftover feature branches |
+| Git Flow | `develop` is integration; `main` is 71 commits behind; no leftover feature branches |
 | Docs | README and `docs/` update in the same change as the code |
 | Security posture | Argon2 passwords; session cookie; default `SESSION_SECRET` fallback in create-app |
 
@@ -128,25 +128,42 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 | `server/src/signaling/sfu-room.ts` | High | Answer, fan-out, retract, exclusive offer queue |
 | `client/src/lib/sfu-link.ts` | High | One PC to Nest, queued offers, mid-to-user routes |
 | `client/src/lib/chat-session.ts` | High | History, inbox, roster, SFU attach vs text mesh |
-| `client/src/lib/mesh.ts` | Medium | Text-only perfect negotiation and ICE queue |
+| `client/src/lib/mesh.ts` | Medium | Data-channel perfect negotiation and ICE queue |
 | Auth, wiki, pages | Low | Straightforward Nest + Solid + `docs/` |
 
 **Paradigm density.** fp-ts (pure), Effect (IO), RxJS (streams), and Solid signals all appear. That raises onboarding cost. The remaining risk is `RTCPeerConnection` edge cases that only Playwright hits, plus SFU offer glare if the pending-offer queue is bypassed.
 
-## Possible improvements
+## Roadmap
 
-- [x] Server-backed history so inbox, unread, and other devices stay in sync
-- [x] Unread, last message, notifications, file drops, profile edit
-- [x] A/V among in-call peers (first as mesh, now replaced by SFU)
-- [x] In-repo wiki under `docs/` (native GitHub Wiki still locked)
-- [x] Unit-test mesh-media helpers (full `RTCPeerConnection` still e2e-only)
-- [x] Nest SFU: one upload per caller, werift forward, cap 16
-- [x] Files/folders without a size cap (one Attach control); Slack-like grouped thread; fuzzy people search; richer profile + prefs
-- [ ] Release: merge `develop` into `main` so production matches history, inbox, and SFU calls
-- [ ] Production shape: Nest serves `client/dist`, HTTPS, secure cookies, required `SESSION_SECRET`
-- [ ] Documented TURN path plus a clearer Connecting-peers failure
-- [ ] Replace lowdb with SQLite if more than one process or real durability is needed
+Sequenced in [Roadmap](Roadmap.md). Now is friction that blocks real use; Next is Slack-like completeness; Later is ops if the install outgrows one process. Do not promote `develop` to `main` until production serve is decided.
+
+### Now
+
+| Work | Why |
+| --- | --- |
+| Presence + member list | Channel header shows who is in the room |
+| TURN + Connecting-peers copy | Hard NAT still fails STUN; keep the e2e string |
+| Production serve | Nest serves `client/dist`, HTTPS, secure cookies, required secret |
+| Release to `main` | Only after production shape is chosen |
+
+### Next
+
+| Work | Why |
+| --- | --- |
+| Jump to unread / thread search | Inbox tracks unread; the open thread does not jump |
+| Message edit and delete | History is append-only |
+| Invites, roles, or channel privacy | Signup can join public rooms |
+| Channel mute / topic | Rooms have no topic or mute |
+
+### Later
+
+| Work | Why |
+| --- | --- |
+| SQLite (or similar) | lowdb is one process |
+| Native GitHub Wiki | Locked on a private free-plan repo |
+
+Shipped work (history, inbox, SFU, HTTPS Vite, Slack-like thread, people search) stays closed. Full checklist: [Roadmap](Roadmap.md).
 
 ## Git
 
-`develop` @ `54a31bc` has inbox, wiki, the Nest SFU (two-way video, autoplay tiles), LAN HTTP send (UUID fallback), and this in-repo status export. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4), 51 commits behind. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main`.
+This change: text mesh is data-channel only (call A/V stays on the SFU), shared Playwright helpers, and the sequenced roadmap. Parent `develop` was `2cbf903`. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4), 71 commits behind that parent. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main` after production serve.
