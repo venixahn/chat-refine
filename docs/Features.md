@@ -13,7 +13,7 @@ Working on `develop`:
 - Profile: display name, bio, status, 36 built-in avatars or upload
 - Preferences: theme (dark / light / system) and search visibility
 - Light markdown in messages
-- 1:1 and group audio/video via Nest SFU (join/leave, mute, camera, cap 16)
+- 1:1 and group audio/video via Nest SFU (join/leave, mute, camera, cap 16; camera/mic need http://127.0.0.1 or HTTPS)
 - Stacked mobile layout
 
 A/V cap is `AV_MESH_CAP` (16). Each caller uploads once; Nest forwards to the others. Text-only rooms can be larger.

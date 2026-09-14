@@ -1,6 +1,6 @@
 # chat-refine status
 
-Late alpha. Snapshot of the inbox-UX landing on `develop`, 13 Sep 2026.
+Late alpha. Snapshot of the send/join-call secure-context fallbacks on `develop`, 13 Sep 2026.
 
 This page is the in-repo export of the Cursor project-status canvas. The live canvas is a local Cursor file (not in git). Anyone with the repo can read this markdown.
 
@@ -78,7 +78,7 @@ flowchart LR
 | Flow | Detail |
 | --- | --- |
 | Directory | Unread, last message, rooms, DMs, create, find |
-| Thread | Server history, sided bubbles, Attach, Enter to send |
+| Thread | Server history, sided bubbles, Attach, Enter to send (works on LAN HTTP) |
 | Call | Join / mute / camera / leave; SFU + roster + cap 16 |
 | Profile | Bio, status, 36 avatars or upload, theme, visibility |
 | Notify | Opt-in desktop alerts while another tab is focused |
@@ -101,14 +101,14 @@ Shared and server stay behind the V8 gate. Client mesh helpers and SFU lock help
 
 ### Shared + server V8 coverage vs fail thresholds
 
-Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 107 unit/API tests, 10 Playwright specs.
+Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 112 unit/API tests, 10 Playwright specs.
 
 | Metric | Measured % | Fail threshold % |
 | --- | --- | --- |
-| Lines | 89.7 | 80 |
-| Statements | 89.7 | 80 |
-| Functions | 88.53 | 80 |
-| Branches | 85.82 | 70 |
+| Lines | 89.62 | 80 |
+| Statements | 89.62 | 80 |
+| Functions | 88.67 | 80 |
+| Branches | 85.53 | 70 |
 
 | Practice | How it shows up |
 | --- | --- |
