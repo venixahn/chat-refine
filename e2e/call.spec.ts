@@ -56,6 +56,20 @@ test("two members join a P2P call", async ({ browser }) => {
   await expect(bob.getByLabel(adaUser.displayName)).toBeVisible({
     timeout: 20_000,
   });
+const remotePlaying = (page: Page, name: string) =>
+  page.getByLabel(name).evaluate((el: HTMLVideoElement) => {
+    const stream = el.srcObject as MediaStream | null;
+    const live = Boolean(
+      stream?.getVideoTracks().some((track) => track.readyState === "live"),
+    );
+    return live && !el.paused;
+  });
+  await expect
+    .poll(() => remotePlaying(ada, bobUser.displayName), { timeout: 20_000 })
+    .toBe(true);
+  await expect
+    .poll(() => remotePlaying(bob, adaUser.displayName), { timeout: 20_000 })
+    .toBe(true);
 
   await ada.getByRole("button", { name: "Mute" }).click();
   await expect(ada.getByRole("button", { name: "Unmute" })).toBeVisible();

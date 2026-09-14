@@ -1,4 +1,5 @@
 import { Show, createEffect } from "solid-js";
+import { bindSrcObject } from "../lib/media-el.ts";
 
 export const MediaTile = (props: {
   label: string;
@@ -8,11 +9,11 @@ export const MediaTile = (props: {
   video?: boolean;
 }) => {
   let video: HTMLVideoElement | undefined;
+  let speaker: HTMLAudioElement | undefined;
 
   createEffect(() => {
-    if (video) {
-      video.srcObject = props.stream;
-    }
+    bindSrcObject(video, props.stream);
+    bindSrcObject(speaker, props.muted ? null : props.stream);
   });
 
   const badge = () => {
@@ -31,14 +32,24 @@ export const MediaTile = (props: {
       <video
         ref={(el) => {
           video = el;
-          el.srcObject = props.stream;
+          bindSrcObject(el, props.stream);
         }}
         autoplay
         playsinline
-        muted={props.muted}
+        muted
         aria-label={props.label}
         class="aspect-video w-full bg-black object-cover"
       />
+      <Show when={!props.muted}>
+        <audio
+          ref={(el) => {
+            speaker = el;
+            bindSrcObject(el, props.stream);
+          }}
+          autoplay
+          class="hidden"
+        />
+      </Show>
       <figcaption class="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-xs">
         {props.label}
       </figcaption>
