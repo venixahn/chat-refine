@@ -8,7 +8,7 @@ Working on `develop`:
 - P2P text plus server-stored history
 - Sent messages on the right, received on the left
 - Unread counts and last-message previews
-- File and folder sharing (any type; folders become a zip)
+- Attachments: one Attach control for files or a folder (folders become a zip)
 - Desktop notifications (opt-in **Notify**)
 - Profile: display name, bio, status, 36 built-in avatars or upload
 - Preferences: theme (dark / light / system) and search visibility

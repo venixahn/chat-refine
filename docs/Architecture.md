@@ -15,7 +15,7 @@ docs/     this wiki
 | --- | --- |
 | Signup, rooms, profile | Yes |
 | Message history, unread | Yes (`data/db.json`) |
-| File / folder bytes | Yes (`data/files/`; metadata in `db.json`) |
+| Attachment bytes (file or folder zip) | Yes (`data/files/`; metadata in `db.json`) |
 | Live text (when a peer is connected) | Also WebRTC data channel |
 | Call audio / video | Yes — Nest SFU forwards RTP; each caller uploads once |
 | SDP / ICE / call roster / SFU signaling | Yes (`/ws`) |

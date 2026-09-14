@@ -10,7 +10,7 @@ This folder is the project wiki. GitHub Wiki is not available on a private free-
 
 - [Setup](Setup.md) — install, run, test
 - [Architecture](Architecture.md) — client, API, SFU, P2P text, history
-- [Features](Features.md) — what works today, including files, profile, and search
+- [Features](Features.md) — what works today, including attachments, profile, and search
 - [Project-status](Project-status.md) — snapshot of what ships, gaps, and next work
 - [Git-Flow](Git-Flow.md) — branches and cleanup
 

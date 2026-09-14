@@ -12,7 +12,7 @@ Working today:
 - Authenticated ICE list (`GET /api/ice`) — Google STUN by default, or `ICE_SERVERS`
 - P2P text over WebRTC data channels, plus server-stored history (and local cache)
 - Unread counts and last-message previews in the room list
-- File and folder sharing (any type/size; stored on disk, not in `db.json`)
+- Attachments: files or a folder from one Attach control (any type/size; stored on disk, not in `db.json`)
 - Desktop notifications when a peer messages you (opt-in)
 - Profile: display name, bio, status, catalog or uploaded avatar, theme, search visibility
 - Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first

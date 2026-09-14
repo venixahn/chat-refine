@@ -94,6 +94,7 @@ test("a file sent while alone is visible later", async ({ browser }) => {
   await signup(bob, bobUser);
 
   await ada.getByRole("link", { name: "general" }).click();
+  await expect(ada.getByRole("button", { name: "Attach", exact: true })).toBeVisible();
   const fileName = `note-${Date.now()}.txt`;
   await ada.getByLabel("Attach file").setInputFiles({
     name: fileName,
