@@ -174,6 +174,8 @@ const chatLineSchema = z.object({
   body: z.string().max(4000),
   createdAt: z.string().min(1),
   fromUserId: z.string().min(1),
+  editedAt: z.string().min(1).optional(),
+  deletedAt: z.string().min(1).optional(),
   attachment: attachmentMetaSchema.omit({ data: true }).optional(),
 });
 
@@ -184,6 +186,8 @@ export const p2pEventSchema = z.discriminatedUnion("type", [
     conversationId: z.string().min(1),
     body: z.string().max(4000),
     createdAt: z.string().min(1),
+    editedAt: z.string().min(1).optional(),
+    deletedAt: z.string().min(1).optional(),
     attachment: attachmentMetaSchema.optional(),
   }),
   z.object({

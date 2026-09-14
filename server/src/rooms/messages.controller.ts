@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
+  Patch,
   Post,
   Req,
   Res,
@@ -14,8 +16,10 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request, Response } from "express";
 import {
+  editMessageSchema,
   postMessageSchema,
   type ChatMessage,
+  type EditMessageInput,
   type PostMessageInput,
 } from "@chat-refine/shared";
 import { SessionAuthGuard } from "../auth/session.guard.ts";
@@ -89,6 +93,29 @@ export class MessagesController {
   ): Promise<{ ok: true }> {
     await runRoomEffect(this.messages.markRead(viewer(request).id, id));
     return { ok: true };
+  }
+
+  @Patch(":id/messages/:messageId")
+  edit(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Param("messageId") messageId: string,
+    @Body(new ZodValidationPipe(editMessageSchema)) body: EditMessageInput,
+  ): Promise<ChatMessage> {
+    return runRoomEffect(
+      this.messages.edit(viewer(request).id, id, messageId, body.body),
+    );
+  }
+
+  @Delete(":id/messages/:messageId")
+  retract(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Param("messageId") messageId: string,
+  ): Promise<ChatMessage> {
+    return runRoomEffect(
+      this.messages.retract(viewer(request).id, id, messageId),
+    );
   }
 
   @Get(":id/messages/:messageId/file")

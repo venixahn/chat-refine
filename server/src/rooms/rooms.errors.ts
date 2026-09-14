@@ -17,3 +17,11 @@ export class InvalidAttachment {
 export class MessageNotFound {
   readonly _tag = "MessageNotFound";
 }
+
+export class NotAuthor {
+  readonly _tag = "NotAuthor";
+}
+
+export class NotAGroup {
+  readonly _tag = "NotAGroup";
+}

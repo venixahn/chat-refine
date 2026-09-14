@@ -57,12 +57,14 @@ const notifyActivity = (preview: string, conversationId: string): void => {
   new Notification("New message", { body: preview });
 };
 
-const RoomRow = (props: { room: RoomView; active: boolean }) => (
+const RoomRow = (props: { room: RoomView; active: boolean }) => {
+  const loud = () => props.room.unreadCount > 0 && !props.room.muted;
+  return (
   <A
     href={`/app/c/${props.room.id}`}
     class={`flex items-start justify-between gap-2 rounded-md px-2 py-1.5 text-sm ${
       props.active ? "bg-[var(--bg)]" : "hover:bg-[var(--bg)]/70"
-    } ${props.room.unreadCount > 0 ? "font-semibold" : ""}`}
+    } ${loud() ? "font-semibold" : ""}`}
   >
     <span class="min-w-0">
       <span class="flex items-baseline gap-1 truncate">
@@ -81,13 +83,14 @@ const RoomRow = (props: { room: RoomView; active: boolean }) => (
         )}
       </Show>
     </span>
-    <Show when={props.room.unreadCount > 0}>
+    <Show when={loud()}>
       <span class="shrink-0 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-xs font-medium text-[var(--bg)]">
         {props.room.unreadCount}
       </span>
     </Show>
   </A>
-);
+  );
+};
 
 export const AppShell = (props: { children?: JSX.Element }) => {
   const navigate = useNavigate();
@@ -95,6 +98,7 @@ export const AppShell = (props: { children?: JSX.Element }) => {
   const inThread = () => location.pathname.startsWith("/app/c/");
   const [tick, setTick] = createSignal(0);
   const [groupName, setGroupName] = createSignal("");
+  const [groupPrivate, setGroupPrivate] = createSignal(false);
   const [dmName, setDmName] = createSignal("");
   const [error, setError] = createSignal<string | null>(null);
   const [paletteOpen, setPaletteOpen] = createSignal(false);
@@ -175,7 +179,12 @@ export const AppShell = (props: { children?: JSX.Element }) => {
     void startInbox({
       onActivity: (event) => {
         refresh();
-        notifyActivity(event.preview, event.conversationId);
+        const muted = (rooms() ?? []).some(
+          (room) => room.id === event.conversationId && room.muted,
+        );
+        if (!muted) {
+          notifyActivity(event.preview, event.conversationId);
+        }
       },
     })
       .then((started) => {
@@ -273,12 +282,13 @@ export const AppShell = (props: { children?: JSX.Element }) => {
   ) => {
     event.preventDefault();
     setError(null);
-    const result = await createGroup(groupName());
+    const result = await createGroup(groupName(), groupPrivate());
     if (!result.ok) {
       setError("Could not create that room.");
       return;
     }
     setGroupName("");
+    setGroupPrivate(false);
     refresh();
     goTo(result.data);
   };
@@ -485,6 +495,15 @@ export const AppShell = (props: { children?: JSX.Element }) => {
                 onInput={(event) => setGroupName(event.currentTarget.value)}
                 class="mt-1 w-full rounded-md border border-[var(--line)] bg-[var(--bg)] px-2 py-1.5 text-sm font-normal text-[var(--text)]"
               />
+            </label>
+            <label class="flex items-center gap-2 text-xs text-[var(--muted)]">
+              <input
+                type="checkbox"
+                aria-label="Private"
+                checked={groupPrivate()}
+                onChange={(event) => setGroupPrivate(event.currentTarget.checked)}
+              />
+              Private
             </label>
             <button
               type="submit"

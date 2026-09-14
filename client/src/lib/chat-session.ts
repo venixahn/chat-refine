@@ -7,7 +7,6 @@ import {
   previewOf,
   type CallPresence,
   type ChatMessage,
-  type MessageAttachment,
   type P2pEvent,
   type SignalingEvent,
   type SignalingPeer,
@@ -25,6 +24,8 @@ import {
   markRead,
   postMessage,
   postMessageFile,
+  editMessage,
+  deleteMessage,
   signalTicket,
 } from "./rooms-api.ts";
 import { connectSignal } from "./signal-client.ts";
@@ -41,6 +42,8 @@ export type OutgoingMessage = {
 
 export type ChatSession = {
   send: (outgoing: OutgoingMessage) => Promise<void>;
+  editMessage: (messageId: string, body: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
   notifyTyping: () => void;
   joinCall: () => Promise<void>;
   leaveCall: () => Promise<void>;
@@ -48,15 +51,6 @@ export type ChatSession = {
   setCamera: (on: boolean) => Promise<void>;
   close: () => void;
 };
-
-const metaOf = (file?: File): MessageAttachment | undefined =>
-  file
-    ? {
-        name: file.name,
-        mime: file.type || "application/octet-stream",
-        size: file.size,
-      }
-    : undefined;
 
 const mergeRemoteHistory = async (
   conversationId: string,
@@ -77,6 +71,8 @@ const fromPeerMessage = (
   body: event.body,
   createdAt: event.createdAt,
   fromUserId,
+  editedAt: event.editedAt,
+  deletedAt: event.deletedAt,
   attachment: event.attachment
     ? {
         name: event.attachment.name,
@@ -164,6 +160,28 @@ export const startChatSession = async (input: {
   const apply = (incoming: ChatMessage) => {
     messages = persistMessage(input.conversationId, incoming);
     input.onMessages(messages);
+  };
+
+  const publishLine = (posted: ChatMessage) => {
+    apply(posted);
+    mesh.broadcast({
+      type: "message",
+      clientMessageId: posted.clientMessageId,
+      conversationId: posted.conversationId,
+      body: posted.body,
+      createdAt: posted.createdAt,
+      editedAt: posted.editedAt,
+      deletedAt: posted.deletedAt,
+      attachment: posted.attachment,
+    });
+    signal.send({
+      type: "activity",
+      conversationId: input.conversationId,
+      preview: previewOf(posted).slice(0, 180),
+      createdAt: posted.editedAt ?? posted.deletedAt ?? posted.createdAt,
+      clientMessageId: posted.clientMessageId,
+    });
+    window.dispatchEvent(new Event("chat-refine:activity"));
   };
 
   const onPeerEvent = (fromUserId: string, event: P2pEvent) => {
@@ -436,23 +454,21 @@ export const startChatSession = async (input: {
         input.onStatus("Could not save that message");
         throw new Error("Could not save that message");
       }
-      apply(posted.data);
-      mesh.broadcast({
-        type: "message",
-        clientMessageId,
-        conversationId: input.conversationId,
-        body: trimmed,
-        createdAt,
-        attachment: posted.data.attachment ?? metaOf(outgoing.file),
-      });
-      signal.send({
-        type: "activity",
-        conversationId: input.conversationId,
-        preview: previewOf(posted.data).slice(0, 180),
-        createdAt,
-        clientMessageId,
-      });
-      window.dispatchEvent(new Event("chat-refine:activity"));
+      publishLine(posted.data);
+    },
+    editMessage: async (messageId, body) => {
+      const posted = await editMessage(input.conversationId, messageId, body);
+      if (!posted.ok) {
+        throw new Error("Could not edit that message");
+      }
+      publishLine(posted.data);
+    },
+    deleteMessage: async (messageId) => {
+      const posted = await deleteMessage(input.conversationId, messageId);
+      if (!posted.ok) {
+        throw new Error("Could not delete that message");
+      }
+      publishLine(posted.data);
     },
     notifyTyping: () => {
       typing$.next();

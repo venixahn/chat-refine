@@ -190,4 +190,42 @@ describe("messages API", () => {
     );
     expect(missingFile.status).toBe(404);
   });
+
+  it("lets the author edit and delete a message", async () => {
+    const adaAgent = request.agent(app.getHttpServer());
+    const bobAgent = request.agent(app.getHttpServer());
+    await adaAgent.post("/api/auth/signup").send(ada);
+    await bobAgent.post("/api/auth/signup").send(bob);
+
+    const posted = await adaAgent.post("/api/rooms/room-general/messages").send({
+      clientMessageId: "msg-ada-edit-01",
+      body: "draft",
+    });
+    expect(posted.status).toBe(201);
+
+    const denied = await bobAgent
+      .patch(`/api/rooms/room-general/messages/${posted.body.clientMessageId}`)
+      .send({ body: "nope" });
+    expect(denied.status).toBe(403);
+
+    const edited = await adaAgent
+      .patch(`/api/rooms/room-general/messages/${posted.body.clientMessageId}`)
+      .send({ body: "final" });
+    expect(edited.status).toBe(200);
+    expect(edited.body.body).toBe("final");
+    expect(edited.body.editedAt).toBeTruthy();
+
+    const listed = await bobAgent.get("/api/rooms/room-general/messages");
+    expect(listed.body[0].body).toBe("final");
+
+    const gone = await adaAgent.delete(
+      `/api/rooms/room-general/messages/${posted.body.clientMessageId}`,
+    );
+    expect(gone.status).toBe(200);
+    expect(gone.body.deletedAt).toBeTruthy();
+    expect(gone.body.body).toBe("");
+
+    const after = await bobAgent.get("/api/rooms/room-general/messages");
+    expect(after.body[0].deletedAt).toBeTruthy();
+  });
 });

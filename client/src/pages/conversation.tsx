@@ -16,7 +16,13 @@ import {
 } from "../lib/chat-session.ts";
 import { packAttachments } from "../lib/file.ts";
 import { callCountLabel } from "../lib/call-labels.ts";
-import { getRoom } from "../lib/rooms-api.ts";
+import {
+  getRoom,
+  inviteToRoom,
+  muteRoom,
+  patchRoomTopic,
+  type RoomView,
+} from "../lib/rooms-api.ts";
 
 const failText = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;
@@ -48,6 +54,13 @@ export const ConversationPage = () => {
   const [callError, setCallError] = createSignal<string | null>(null);
   const [muted, setMuted] = createSignal(false);
   const [cameraOn, setCameraOn] = createSignal(true);
+  const [search, setSearch] = createSignal("");
+  const [unreadSince, setUnreadSince] = createSignal("9999");
+  const [editingId, setEditingId] = createSignal<string | null>(null);
+  const [editDraft, setEditDraft] = createSignal("");
+  const [topicDraft, setTopicDraft] = createSignal("");
+  const [inviteName, setInviteName] = createSignal("");
+  const [liveRoom, setLiveRoom] = createSignal<RoomView | null>(null);
 
   const [profile] = createResource(() =>
     me().then((result) => (result.ok ? result.data : null)),
@@ -64,7 +77,7 @@ export const ConversationPage = () => {
   const authors = createMemo(() => {
     const names = new Map<string, string>();
     const avatars = new Map<string, string | null>();
-    for (const member of room()?.members ?? []) {
+    for (const member of (liveRoom() ?? room())?.members ?? []) {
       names.set(member.id, member.displayName);
       avatars.set(member.id, member.avatarUrl);
     }
@@ -80,6 +93,20 @@ export const ConversationPage = () => {
   const othersInCall = () =>
     callRoster().filter((item) => item.userId !== profile()?.id);
   const callFull = () => !inCall() && !canAddAvPeer(othersInCall().length);
+
+  createEffect(() => {
+    const current = room();
+    const id = params.id;
+    if (!current || current.id !== id) {
+      return;
+    }
+    setLiveRoom(current);
+    setTopicDraft(current.topic);
+    setUnreadSince(current.lastReadAt);
+    setSearch("");
+    setEditingId(null);
+    setInviteName("");
+  });
 
   createEffect(() => {
     const conversationId = params.id;
@@ -125,13 +152,27 @@ export const ConversationPage = () => {
   });
 
   let scroller: HTMLElement | undefined;
+  let jumpedUnread = false;
+
+  createEffect(() => {
+    void params.id;
+    jumpedUnread = false;
+  });
 
   createEffect(() => {
     messages();
+    unreadSince();
     queueMicrotask(() => {
-      if (scroller) {
-        scroller.scrollTop = scroller.scrollHeight;
+      if (!scroller) {
+        return;
       }
+      const anchor = scroller.querySelector("[data-unread='true']");
+      if (anchor && !jumpedUnread) {
+        anchor.scrollIntoView({ block: "center" });
+        jumpedUnread = true;
+        return;
+      }
+      scroller.scrollTop = scroller.scrollHeight;
     });
   });
 
@@ -155,9 +196,11 @@ export const ConversationPage = () => {
       });
   };
 
+  const shownRoom = () => liveRoom() ?? room();
+
   return (
     <ConversationPane
-      room={room()}
+      room={shownRoom()}
       status={status()}
       callLabel={callCountLabel(inCall(), othersInCall().length)}
       inCall={inCall()}
@@ -179,6 +222,12 @@ export const ConversationPage = () => {
       muted={muted()}
       cameraOn={cameraOn()}
       session={session()}
+      search={search()}
+      unreadSince={unreadSince()}
+      editingId={editingId()}
+      editDraft={editDraft()}
+      topicDraft={topicDraft()}
+      inviteName={inviteName()}
       setScroller={(node) => {
         scroller = node;
       }}
@@ -207,6 +256,83 @@ export const ConversationPage = () => {
       onSend={sendDraft}
       onPick={pickFiles}
       onRemoveFile={() => setFile(null)}
+      onSearch={setSearch}
+      onChannelMute={() => {
+        const current = shownRoom();
+        if (!current) {
+          return;
+        }
+        void muteRoom(current.id, !current.muted).then((result) => {
+          if (result.ok) {
+            setLiveRoom(result.data);
+            window.dispatchEvent(new Event("chat-refine:activity"));
+          }
+        });
+      }}
+      onTopicDraft={setTopicDraft}
+      onSaveTopic={() => {
+        const current = shownRoom();
+        if (!current || current.kind !== "group") {
+          return;
+        }
+        if (topicDraft() === current.topic) {
+          return;
+        }
+        void patchRoomTopic(current.id, topicDraft()).then((result) => {
+          if (result.ok) {
+            setLiveRoom(result.data);
+            setTopicDraft(result.data.topic);
+          }
+        });
+      }}
+      onInviteName={setInviteName}
+      onInvite={() => {
+        const current = shownRoom();
+        const username = inviteName().trim();
+        if (!current || !username) {
+          return;
+        }
+        void inviteToRoom(current.id, { username }).then((result) => {
+          if (result.ok) {
+            setLiveRoom(result.data);
+            setInviteName("");
+            window.dispatchEvent(new Event("chat-refine:activity"));
+          } else {
+            setSendError("Could not invite that person.");
+          }
+        });
+      }}
+      onStartEdit={(item) => {
+        setEditingId(item.clientMessageId);
+        setEditDraft(item.body);
+      }}
+      onEditDraft={setEditDraft}
+      onSaveEdit={() => {
+        const id = editingId();
+        if (!id) {
+          return;
+        }
+        void session()
+          ?.editMessage(id, editDraft())
+          .then(() => {
+            setEditingId(null);
+            setEditDraft("");
+          })
+          .catch((error: unknown) => {
+            setSendError(failText(error, "Could not edit that message"));
+          });
+      }}
+      onCancelEdit={() => {
+        setEditingId(null);
+        setEditDraft("");
+      }}
+      onDelete={(item) => {
+        void session()
+          ?.deleteMessage(item.clientMessageId)
+          .catch((error: unknown) => {
+            setSendError(failText(error, "Could not delete that message"));
+          });
+      }}
     />
   );
 };

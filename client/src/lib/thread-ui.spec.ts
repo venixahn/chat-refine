@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { continuesBurst, formatClock, initialsOf } from "./thread-ui.ts";
+import { continuesBurst, firstUnreadId, formatClock, initialsOf, matchesQuery } from "./thread-ui.ts";
 
 describe("formatClock", () => {
   it("shows a clock for a message from the last minute", () => {
@@ -51,5 +51,37 @@ describe("initialsOf", () => {
   it("uses the first letter", () => {
     expect(initialsOf(" ada")).toBe("A");
     expect(initialsOf("")).toBe("?");
+  });
+});
+
+describe("firstUnreadId", () => {
+  it("skips self and finds the first later line", () => {
+    expect(
+      firstUnreadId(
+        [
+          {
+            clientMessageId: "msg-self",
+            fromUserId: "ada",
+            createdAt: "2026-09-14T20:01:00.000Z",
+          },
+          {
+            clientMessageId: "msg-bob",
+            fromUserId: "bob",
+            createdAt: "2026-09-14T20:02:00.000Z",
+          },
+        ],
+        "ada",
+        "2026-09-14T20:00:00.000Z",
+      ),
+    ).toBe("msg-bob");
+  });
+});
+
+describe("matchesQuery", () => {
+  it("matches body text and skips deleted lines", () => {
+    expect(matchesQuery("hi", { body: "Hi there" })).toBe(true);
+    expect(matchesQuery("hi", { body: "Hi there", deletedAt: "now" })).toBe(
+      false,
+    );
   });
 });

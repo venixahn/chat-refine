@@ -9,6 +9,7 @@ import {
   InvalidAttachment,
   MessageNotFound,
   NotAMember,
+  NotAuthor,
 } from "./rooms.errors.ts";
 import { RoomsService, toPublicMessage } from "./rooms.service.ts";
 
@@ -114,6 +115,64 @@ export class MessagesService {
           data.readCursors.push({ userId, conversationId, lastReadAt: now });
         }),
       catch: (error) => new Error(String(error)),
+    });
+  }
+
+  edit(
+    userId: string,
+    conversationId: string,
+    messageId: string,
+    body: string,
+  ): Effect.Effect<ChatMessage, NotAMember | NotAuthor | MessageNotFound | Error> {
+    return this.rewrite(userId, conversationId, messageId, (stored) => {
+      stored.body = body.trim();
+      stored.editedAt = new Date().toISOString();
+    });
+  }
+
+  retract(
+    userId: string,
+    conversationId: string,
+    messageId: string,
+  ): Effect.Effect<ChatMessage, NotAMember | NotAuthor | MessageNotFound | Error> {
+    return this.rewrite(userId, conversationId, messageId, (stored) => {
+      stored.deletedAt = new Date().toISOString();
+    });
+  }
+
+  private rewrite(
+    userId: string,
+    conversationId: string,
+    messageId: string,
+    apply: (stored: StoredMessage) => void,
+  ): Effect.Effect<ChatMessage, NotAMember | NotAuthor | MessageNotFound | Error> {
+    if (!this.rooms.isMember(userId, conversationId)) {
+      return Effect.fail(new NotAMember());
+    }
+    const db = this.db;
+    return Effect.tryPromise({
+      try: () =>
+        db.update((data) => {
+          const found = data.messages.find(
+            (item) =>
+              item.clientMessageId === messageId &&
+              item.conversationId === conversationId,
+          );
+          if (!found || found.deletedAt) {
+            throw new MessageNotFound();
+          }
+          if (found.fromUserId !== userId) {
+            throw new NotAuthor();
+          }
+          apply(found);
+          return toPublicMessage(found);
+        }),
+      catch: (error) => {
+        if (error instanceof MessageNotFound || error instanceof NotAuthor) {
+          return error;
+        }
+        return new Error(String(error));
+      },
     });
   }
 

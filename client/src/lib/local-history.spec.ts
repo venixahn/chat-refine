@@ -20,7 +20,7 @@ describe("local history", () => {
     expect(loadHistory("room-general", memory())).toEqual([]);
   });
 
-  it("persists and dedups messages", () => {
+  it("persists and replaces an edited body", () => {
     const store = memory();
     const first = {
       clientMessageId: "msg-aaaa-1",
@@ -32,11 +32,11 @@ describe("local history", () => {
     persistMessage("room-general", first, store);
     const again = persistMessage(
       "room-general",
-      { ...first, body: "changed" },
+      { ...first, body: "changed", editedAt: "2026-09-12T00:00:09.000Z" },
       store,
     );
-    expect(again).toEqual([first]);
-    expect(loadHistory("room-general", store)).toEqual([first]);
+    expect(again[0]?.body).toBe("changed");
+    expect(loadHistory("room-general", store)[0]?.body).toBe("changed");
   });
 
   it("ignores corrupt storage", () => {

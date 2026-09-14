@@ -37,3 +37,26 @@ export const initialsOf = (name: string): string => {
   const trimmed = name.trim();
   return trimmed ? trimmed.slice(0, 1).toUpperCase() : "?";
 };
+
+export const firstUnreadId = (
+  messages: readonly { clientMessageId: string; fromUserId: string; createdAt: string; deletedAt?: string }[],
+  selfId: string,
+  since: string,
+): string | undefined =>
+  messages.find(
+    (item) =>
+      item.fromUserId !== selfId &&
+      !item.deletedAt &&
+      item.createdAt > since,
+  )?.clientMessageId;
+
+export const matchesQuery = (
+  query: string,
+  message: { body: string; deletedAt?: string },
+): boolean => {
+  const needle = query.trim().toLowerCase();
+  if (!needle || message.deletedAt) {
+    return false;
+  }
+  return message.body.toLowerCase().includes(needle);
+};

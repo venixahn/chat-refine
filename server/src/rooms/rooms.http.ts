@@ -9,7 +9,9 @@ import {
   CannotDmSelf,
   InvalidAttachment,
   MessageNotFound,
+  NotAGroup,
   NotAMember,
+  NotAuthor,
   UserNotFound,
 } from "./rooms.errors.ts";
 
@@ -33,6 +35,12 @@ export const runRoomEffect = async <A, E>(
     }
     if (error instanceof MessageNotFound) {
       throw new NotFoundException();
+    }
+    if (error instanceof NotAuthor) {
+      throw new ForbiddenException();
+    }
+    if (error instanceof NotAGroup) {
+      throw new BadRequestException("Not a channel");
     }
     throw new InternalServerErrorException();
   }

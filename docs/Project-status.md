@@ -1,16 +1,16 @@
 # chat-refine status
 
-Late alpha. Snapshot of Slack-like thread, text-only mesh, and sequenced roadmap on `develop`, 14 Sep 2026.
+Late alpha. Snapshot of Slack-like completeness (unread jump, search, edit/delete, private invite, topic, mute) on `develop`, 14 Sep 2026.
 
 This page is the in-repo export of the Cursor project-status canvas. The live canvas is a local Cursor file (not in git). Anyone with the repo can read this markdown. Sequenced next work: [Roadmap](Roadmap.md).
 
 On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, rooms, history, unread, files, signaling, and the SFU. Live text prefers a WebRTC data-channel mesh (no A/V on those peer connections); an open thread also refetches history on activity.
 
-**Core loop is complete on `develop`.** Sign up, rooms and DMs, server-backed history, inbox unread, attachments (file or folder from one Attach control), notifications, profile (bio, status, avatars, theme, visibility), Telegram-style people search, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. Production serve and TURN are not done.
+**Core loop is complete on `develop`.** Sign up, rooms and DMs (public Join or private invite), server-backed history with edit/delete, inbox unread plus jump-to-unread in the thread, attachments (file or folder from one Attach control), notifications (muted channels stay quiet), profile (bio, status, avatars, theme, visibility), Telegram-style people search, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. Production serve and TURN are not done.
 
 | Maturity | Shared + server lines | Playwright e2e last push | SFU call cap |
 | --- | --- | --- | --- |
-| Late alpha | 90% | 12 / 12 | 16 peers |
+| Late alpha | 90% | 14 / 14 | 16 peers |
 
 ## Architecture
 
@@ -47,9 +47,9 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | Surface | State | Limit |
 | --- | --- | --- |
 | Signup / sign-in / sign-out | Done | Username + password only |
-| Groups, DMs, directory | Done | No invites or roles |
-| P2P text + server history | Done | Also cached in localStorage |
-| Inbox unread + last message | Done | Activity frames, no open thread needed |
+| Groups, DMs, directory | Done | Public Join; private invite; owner + member |
+| P2P text + server history | Done | Edit/delete own messages; localStorage cache |
+| Inbox unread + last message | Done | Jump to unread in the open thread |
 | Attachments (file or folder) | Done | One Attach control; bytes on disk; no size cap |
 | Profile, avatars, preferences | Done | 36 catalog avatars or upload; theme + visibility |
 | Notify | Done | Notifications are opt-in |
@@ -77,8 +77,8 @@ flowchart LR
 
 | Flow | Detail |
 | --- | --- |
-| Directory | Unread bold + badge, last message, `#` channels, DMs, create, find |
-| Thread | Slack-like left-aligned + grouped bursts, boxed composer, Attach (file or folder zip), Enter to send; open thread refetches on activity |
+| Directory | Unread bold + badge (muted stays quiet), last message, `#` channels, DMs, create, private, find |
+| Thread | Slack-like left-aligned + grouped bursts, boxed composer, Attach, search, New messages divider, edit/delete, topic |
 | Call | Join / mute / camera / leave; SFU + roster + cap 16; remote video autoplays |
 | Profile | Bio, status, 36 avatars or upload, theme, visibility |
 | Notify | Opt-in desktop alerts while another tab is focused |
@@ -92,7 +92,6 @@ flowchart LR
 | Self-signed Vite cert | Accept it once so LAN Join call can open camera/mic |
 | `main` behind `develop` | Production tag is rooms/signaling only |
 | lowdb JSON | One process; not durable under concurrent writers |
-| No edit / delete / invites | Messages and memberships are append-only |
 | GitHub Wiki pages | Private free-plan repo cannot enable Wikis |
 
 ## Code quality
@@ -101,7 +100,7 @@ Shared and server stay behind the V8 gate. Client mesh helpers and SFU lock help
 
 ### Shared + server V8 coverage vs fail thresholds
 
-Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 119 unit/API tests, 12 Playwright specs.
+Source: local Vitest V8 · 14 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are excluded from the gate. 129 unit/API tests, 14 Playwright specs.
 
 | Metric | Measured % | Fail threshold % |
 | --- | --- | --- |
@@ -113,7 +112,7 @@ Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are e
 | Practice | How it shows up |
 | --- | --- |
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
-| Hooks | pre-commit Vitest; pre-push Playwright (12 specs, HTTPS Vite, ignore self-signed cert) |
+| Hooks | pre-commit Vitest; pre-push Playwright (14 specs, HTTPS Vite, ignore self-signed cert) |
 | Complexity | ESLint complexity max 10 |
 | Git Flow | `develop` is integration; `main` is 71 commits behind; no leftover feature branches |
 | Docs | README and `docs/` update in the same change as the code |
@@ -135,7 +134,7 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 
 ## Roadmap
 
-Sequenced in [Roadmap](Roadmap.md). Now is friction that blocks real use; Next is Slack-like completeness; Later is ops if the install outgrows one process. Do not promote `develop` to `main` until production serve is decided.
+Sequenced in [Roadmap](Roadmap.md). Now is friction that blocks real use. Slack-like completeness shipped. Later is ops if the install outgrows one process. Do not promote `develop` to `main` until production serve is decided.
 
 ### Now
 
@@ -148,12 +147,7 @@ Sequenced in [Roadmap](Roadmap.md). Now is friction that blocks real use; Next i
 
 ### Next
 
-| Work | Why |
-| --- | --- |
-| Jump to unread / thread search | Inbox tracks unread; the open thread does not jump |
-| Message edit and delete | History is append-only |
-| Invites, roles, or channel privacy | Signup can join public rooms |
-| Channel mute / topic | Rooms have no topic or mute |
+Shipped: jump to unread, thread search, edit/delete, private invite, topic, mute channel.
 
 ### Later
 
@@ -166,4 +160,4 @@ Shipped work (history, inbox, SFU, HTTPS Vite, Slack-like thread, people search)
 
 ## Git
 
-This change: text mesh is data-channel only (call A/V stays on the SFU), shared Playwright helpers, and the sequenced roadmap. Parent `develop` was `2cbf903`. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4), 71 commits behind that parent. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main` after production serve.
+This change: jump to unread, thread search, edit/delete, private invite, topic, and mute channel. Parent `develop` was `929dfa9`. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4), 73 commits behind that parent. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main` after production serve.

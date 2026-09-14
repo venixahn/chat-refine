@@ -8,6 +8,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Req,
   Res,
@@ -17,13 +18,18 @@ import { Effect } from "effect";
 import type { Request, Response } from "express";
 import {
   createGroupSchema,
+  muteRoomSchema,
   openDmSchema,
+  patchRoomSchema,
   type CreateGroupInput,
+  type MuteRoomInput,
   type OpenDmInput,
+  type PatchRoomInput,
 } from "@chat-refine/shared";
 import type { PublicProfile } from "../db/schema.ts";
 import { ZodValidationPipe } from "../http/zod-validation.pipe.ts";
 import { SessionAuthGuard } from "../auth/session.guard.ts";
+import { runRoomEffect } from "./rooms.http.ts";
 import { RoomsService, type RoomView } from "./rooms.service.ts";
 
 const viewer = (request: Request): PublicProfile => request.user as PublicProfile;
@@ -113,5 +119,32 @@ export class RoomsController {
     @Param("id") id: string,
   ): Promise<RoomView> {
     return unwrapRoom(this.rooms.joinGroup(viewer(request).id, id));
+  }
+
+  @Post(":id/invite")
+  invite(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(openDmSchema)) body: OpenDmInput,
+  ): Promise<RoomView> {
+    return runRoomEffect(this.rooms.invite(viewer(request).id, id, body));
+  }
+
+  @Post(":id/mute")
+  mute(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(muteRoomSchema)) body: MuteRoomInput,
+  ): Promise<RoomView> {
+    return runRoomEffect(this.rooms.setMuted(viewer(request).id, id, body));
+  }
+
+  @Patch(":id")
+  patch(
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(patchRoomSchema)) body: PatchRoomInput,
+  ): Promise<RoomView> {
+    return runRoomEffect(this.rooms.patchTopic(viewer(request).id, id, body));
   }
 }
