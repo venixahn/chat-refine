@@ -14,7 +14,7 @@ On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, roo
 
 ## Architecture
 
-Two planes, plus an SFU hop for calls. Solid talks to Nest over HTTP (auth, rooms, history, files, profile, ICE, ticket) and a ticketed WebSocket (SDP, ICE, inbox activity, call roster, SFU signaling). Text still goes browser-to-browser. Call media goes browser to Nest to browsers.
+Two planes, plus an SFU hop for calls. Solid talks to Nest over HTTP (auth, rooms, history, files, profile, ICE, ticket) and a ticketed WebSocket (SDP, ICE, inbox activity, call roster, SFU signaling). Text still goes browser-to-browser. Call media goes browser to Nest to browsers. Full diagram: [Architecture](Architecture.md).
 
 ```mermaid
 flowchart LR
