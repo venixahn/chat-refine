@@ -2,7 +2,7 @@
 
 On-premises peer-to-peer chat: 1:1 and small-group **text, audio, and video**.
 
-Live text travels over **WebRTC** between browsers. Call media goes through Nest’s SFU (one upload per caller). Nest also does auth, rooms, signaling, and persisted chat history.
+Live text travels over **WebRTC** between browsers. Call media goes through Nest’s SFU (one upload per caller; both sides see forwarded video). Nest also does auth, rooms, signaling, and persisted chat history.
 
 This folder is the project wiki. GitHub Wiki is not available on a private free-plan repository, so docs live here and on the [chat-refine wiki](https://github.com/users/venix523/projects/1) project board.
 

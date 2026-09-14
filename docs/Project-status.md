@@ -1,6 +1,6 @@
 # chat-refine status
 
-Late alpha. Snapshot of the send/join-call secure-context fallbacks on `develop`, 13 Sep 2026.
+Late alpha. Snapshot of two-way SFU video (queued renegotiation + autoplay tiles) on `develop`, 13 Sep 2026.
 
 This page is the in-repo export of the Cursor project-status canvas. The live canvas is a local Cursor file (not in git). Anyone with the repo can read this markdown.
 
@@ -54,12 +54,12 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | Profile, avatars, preferences | Done | 36 catalog avatars or upload; theme + visibility |
 | Notify | Done | Notifications are opt-in |
 | A/V join, mute, camera | Done | Media through Nest SFU, cap 16 |
-| Nest SFU (werift) | Done | Serialized offers; one upload per caller |
+| Nest SFU (werift) | Done | Coalesced A/V offers; queued renegotiation; cap 16 |
 | Mobile stack + markdown | Done | Bold, italic, code, http(s) links |
 | Internet ICE (Google STUN) | Done on develop | Hard NAT still needs TURN |
 | In-repo wiki (`docs/`) | Done | Native GitHub Wiki locked on private free plan |
 | Production single process | Not wired | Nest does not yet serve `client/dist` |
-| Promote develop to main | Not done | `main` is 45 commits behind |
+| Promote develop to main | Not done | `main` is 51 commits behind |
 
 ## UX
 
@@ -115,7 +115,7 @@ Source: local Vitest V8 · 13 Sep 2026. Client `mesh.ts` and `sfu-link.ts` are e
 | Contracts in `shared/` | Zod for auth, rooms, messages, ICE, signaling, call roster, SFU frames |
 | Hooks | pre-commit Vitest; pre-push Playwright (10 specs) |
 | Complexity | ESLint complexity max 10 |
-| Git Flow | `develop` is integration; `main` is 45 commits behind; no leftover feature branches |
+| Git Flow | `develop` is integration; `main` is 51 commits behind; no leftover feature branches |
 | Docs | README and `docs/` update in the same change as the code |
 | Security posture | Argon2 passwords; session cookie; default `SESSION_SECRET` fallback in create-app |
 
@@ -126,12 +126,12 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 | Area | Heat | Why |
 | --- | --- | --- |
 | `server/src/signaling/sfu-room.ts` | High | Answer, fan-out, retract, exclusive offer queue |
-| `client/src/lib/sfu-link.ts` | High | One PC to Nest, polite rollback, mid-to-user routes |
+| `client/src/lib/sfu-link.ts` | High | One PC to Nest, queued offers, mid-to-user routes |
 | `client/src/lib/chat-session.ts` | High | History, inbox, roster, SFU attach vs text mesh |
 | `client/src/lib/mesh.ts` | Medium | Text-only perfect negotiation and ICE queue |
 | Auth, wiki, pages | Low | Straightforward Nest + Solid + `docs/` |
 
-**Paradigm density.** fp-ts (pure), Effect (IO), RxJS (streams), and Solid signals all appear. That raises onboarding cost. The remaining risk is `RTCPeerConnection` edge cases that only Playwright hits, plus SFU offer glare if the exclusive queue is bypassed.
+**Paradigm density.** fp-ts (pure), Effect (IO), RxJS (streams), and Solid signals all appear. That raises onboarding cost. The remaining risk is `RTCPeerConnection` edge cases that only Playwright hits, plus SFU offer glare if the pending-offer queue is bypassed.
 
 ## Possible improvements
 
@@ -149,4 +149,4 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 
 ## Git
 
-`develop` @ `5bc4ed5` has inbox, wiki, the Nest SFU, LAN HTTP send (UUID fallback), and this in-repo status export. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4), 45 commits behind. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main`.
+`develop` @ `54a31bc` has inbox, wiki, the Nest SFU (two-way video, autoplay tiles), LAN HTTP send (UUID fallback), and this in-repo status export. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4), 51 commits behind. Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main`.

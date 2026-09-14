@@ -16,7 +16,7 @@ Working today:
 - Desktop notifications when a peer messages you (opt-in)
 - Profile: display name, bio, status, catalog or uploaded avatar, theme, search visibility
 - Light markdown in messages (`**bold**`, `*italic*`, `` `code` ``, http(s) links), HTML-escaped first
-- 1:1 and group audio/video via a Nest SFU (join/leave, mute, camera; one upload per caller)
+- 1:1 and group audio/video via a Nest SFU (join/leave, mute, camera; one upload per caller). Remote tiles mute the video element and play audio separately so both callers’ feeds autoplay. Join from **http://127.0.0.1:5173** or HTTPS.
 - Landing, auth pages, and `/app` / `/app/c/:id`
 - Stacked mobile layout (rooms list, then thread with a Rooms back link)
 - Unit, API, coverage, and Playwright auth, chat, call, inbox, and mobile e2e
