@@ -101,20 +101,19 @@ export const ConversationPage = () => {
       onRemoteStreams: setRemoteStreams,
       onCallRoster: setCallRoster,
       onCallError: setCallError,
-    })
-      .then((started) => {
+      onAttached: (started) => {
         if (cancelled) {
           started.close();
           return;
         }
         active = started;
         setSession(started);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setStatus("Could not connect signaling");
-        }
-      });
+      },
+    }).catch(() => {
+      if (!cancelled) {
+        setStatus("Could not connect signaling");
+      }
+    });
     onCleanup(() => {
       cancelled = true;
       active?.close();
