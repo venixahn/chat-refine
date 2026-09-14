@@ -32,3 +32,19 @@ export const zipFolderFiles = async (files: File[]): Promise<File> => {
   const root = entries[0]?.name.split("/")[0] ?? "folder";
   return new File([bytes], `${root}.zip`, { type: "application/zip" });
 };
+
+const isNested = (file: File) => file.webkitRelativePath.includes("/");
+
+export const packAttachments = async (
+  list: FileList | File[] | null,
+): Promise<File | null> => {
+  const files = list ? [...list] : [];
+  const first = files[0];
+  if (!first) {
+    return null;
+  }
+  if (files.length === 1 && !isNested(first)) {
+    return first;
+  }
+  return zipFolderFiles(files);
+};

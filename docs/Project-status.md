@@ -6,7 +6,7 @@ This page is the in-repo export of the Cursor project-status canvas. The live ca
 
 On-prem peer-to-peer text plus Nest-forwarded call media. Nest handles auth, rooms, history, unread, files, signaling, and the SFU. Live text stays on a WebRTC data-channel mesh.
 
-**Core loop is complete on `develop`.** Sign up, rooms and DMs, server-backed history, inbox unread, any-size files and folders, notifications, profile (bio, status, avatars, theme, visibility), Telegram-style people search, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. Production serve and TURN are not done.
+**Core loop is complete on `develop`.** Sign up, rooms and DMs, server-backed history, inbox unread, attachments (file or folder from one Attach control), notifications, profile (bio, status, avatars, theme, visibility), Telegram-style people search, and calls that upload once to Nest. Werift forwards audio and video to other in-call peers. Production serve and TURN are not done.
 
 | Maturity | Shared + server lines | Playwright e2e last push | SFU call cap |
 | --- | --- | --- | --- |
@@ -50,7 +50,7 @@ Solid lines in the canvas: control plane, persisted history, and the SFU upload.
 | Groups, DMs, directory | Done | No invites or roles |
 | P2P text + server history | Done | Also cached in localStorage |
 | Inbox unread + last message | Done | Activity frames, no open thread needed |
-| Files and folders (any type) | Done | Bytes on disk; no size cap |
+| Attachments (file or folder) | Done | One Attach control; bytes on disk; no size cap |
 | Profile, avatars, preferences | Done | 36 catalog avatars or upload; theme + visibility |
 | Notify | Done | Notifications are opt-in |
 | A/V join, mute, camera | Done | Media through Nest SFU, cap 16 |
@@ -78,7 +78,7 @@ flowchart LR
 | Flow | Detail |
 | --- | --- |
 | Directory | Unread, last message, rooms, DMs, create, find |
-| Thread | Server history, sided bubbles, files, Enter to send |
+| Thread | Server history, sided bubbles, Attach, Enter to send |
 | Call | Join / mute / camera / leave; SFU + roster + cap 16 |
 | Profile | Bio, status, 36 avatars or upload, theme, visibility |
 | Notify | Opt-in desktop alerts while another tab is focused |
@@ -141,7 +141,7 @@ The hard parts shifted. Text mesh is still perfect negotiation. Call media is no
 - [x] In-repo wiki under `docs/` (native GitHub Wiki still locked)
 - [x] Unit-test mesh-media helpers (full `RTCPeerConnection` still e2e-only)
 - [x] Nest SFU: one upload per caller, werift forward, cap 16
-- [x] Files/folders without a size cap; opposite-side bubbles; fuzzy people search; richer profile + prefs
+- [x] Files/folders without a size cap (one Attach control); opposite-side bubbles; fuzzy people search; richer profile + prefs
 - [ ] Release: merge `develop` into `main` so production matches history, inbox, and SFU calls
 - [ ] Production shape: Nest serves `client/dist`, HTTPS, secure cookies, required `SESSION_SECRET`
 - [ ] Documented TURN path plus a clearer Connecting-peers failure

@@ -25,7 +25,8 @@ import {
   type ChatSession,
   type RemoteMedia,
 } from "../lib/chat-session.ts";
-import { zipFolderFiles } from "../lib/file.ts";
+import { AttachmentControl } from "../components/attachment-control.tsx";
+import { packAttachments } from "../lib/file.ts";
 import { getRoom, messageFileUrl } from "../lib/rooms-api.ts";
 
 const isImage = (mime: string) => mime.startsWith("image/");
@@ -150,16 +151,9 @@ export const ConversationPage = () => {
     }
   };
 
-  const pickFiles = async (list: FileList | null, folder: boolean) => {
-    if (!list || list.length === 0) {
-      return;
-    }
+  const pickFiles = async (list: FileList | null) => {
     try {
-      setFile(
-        folder && list.length > 1
-          ? await zipFolderFiles([...list])
-          : list[0] ?? null,
-      );
+      setFile(await packAttachments(list));
     } catch (error) {
       setSendError(
         error instanceof Error ? error.message : "Could not pack that folder",
@@ -361,32 +355,11 @@ export const ConversationPage = () => {
             }}
             class="min-h-[3rem] flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
           />
-          <label class="self-end rounded-full border border-[var(--line)] px-4 py-2 text-sm">
-            File
-            <input
-              type="file"
-              aria-label="Attach file"
-              class="sr-only"
-              onChange={(event) => {
-                void pickFiles(event.currentTarget.files, false);
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-          <label class="self-end rounded-full border border-[var(--line)] px-4 py-2 text-sm">
-            Folder
-            <input
-              type="file"
-              multiple
-              {...{ webkitdirectory: "", directory: "" }}
-              aria-label="Attach folder"
-              class="sr-only"
-              onChange={(event) => {
-                void pickFiles(event.currentTarget.files, true);
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
+          <AttachmentControl
+            onPick={(list) => {
+              void pickFiles(list);
+            }}
+          />
           <button
             type="submit"
             class="self-end rounded-full bg-[var(--accent)] px-5 py-2 font-medium text-[var(--bg)]"
