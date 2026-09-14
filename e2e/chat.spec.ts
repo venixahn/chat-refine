@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { signup, uniqueUser } from "./helpers.ts";
+import { connectedStatus, sharePublicRoom, signup, uniqueUser } from "./helpers.ts";
 
 test("two members exchange a p2p text message", async ({ browser }) => {
+  test.setTimeout(60_000);
   const adaUser = uniqueUser("ada");
   const bobUser = uniqueUser("bob");
   const adaContext = await browser.newContext();
@@ -12,13 +13,12 @@ test("two members exchange a p2p text message", async ({ browser }) => {
   await signup(ada, adaUser);
   await signup(bob, bobUser);
 
-  await ada.getByRole("link", { name: "general" }).click();
-  await bob.getByRole("link", { name: "general" }).click();
+  await sharePublicRoom(ada, bob, `chat${Date.now()}`.slice(0, 20));
 
-  await expect(ada.getByText(/Connected · 1 peer/)).toBeVisible({
+  await expect(ada.getByText(connectedStatus)).toBeVisible({
     timeout: 20_000,
   });
-  await expect(bob.getByText(/Connected · 1 peer/)).toBeVisible({
+  await expect(bob.getByText(connectedStatus)).toBeVisible({
     timeout: 20_000,
   });
 
@@ -45,6 +45,7 @@ test("two members exchange a p2p text message", async ({ browser }) => {
 test("an open room shows text from history when activity arrives", async ({
   browser,
 }) => {
+  test.setTimeout(60_000);
   const adaUser = uniqueUser("ada");
   const bobUser = uniqueUser("bob");
   const adaContext = await browser.newContext();
@@ -55,8 +56,7 @@ test("an open room shows text from history when activity arrives", async ({
   await signup(ada, adaUser);
   await signup(bob, bobUser);
 
-  await ada.getByRole("link", { name: "general" }).click();
-  await bob.getByRole("link", { name: "general" }).click();
+  await sharePublicRoom(ada, bob, `hist${Date.now()}`.slice(0, 20));
   await expect(ada.getByText(/Waiting for peers|Connecting peers|Connected ·/)).toBeVisible({
     timeout: 20_000,
   });

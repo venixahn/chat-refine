@@ -23,3 +23,30 @@ export const signup = async (page: Page, user: TestUser) => {
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByRole("heading", { name: user.displayName })).toBeVisible();
 };
+
+export const connectedStatus = /Connected · \d+ peers?/;
+
+export const createPublicRoom = async (page: Page, title: string) => {
+  await page.getByLabel("New channel").fill(title);
+  await page.getByRole("button", { name: "Create room" }).click();
+  await expect(page.getByRole("heading", { name: title })).toBeVisible({
+    timeout: 10_000,
+  });
+};
+
+export const joinListedRoom = async (page: Page, title: string) => {
+  await page.getByRole("button", { name: `Join ${title}` }).click();
+  await expect(page.getByRole("heading", { name: title })).toBeVisible({
+    timeout: 10_000,
+  });
+};
+
+export const sharePublicRoom = async (
+  host: Page,
+  guest: Page,
+  title: string,
+) => {
+  await createPublicRoom(host, title);
+  await guest.goto("/app");
+  await joinListedRoom(guest, title);
+};

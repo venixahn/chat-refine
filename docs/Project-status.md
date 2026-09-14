@@ -160,4 +160,4 @@ Shipped work (history, inbox, SFU, HTTPS Vite, Slack-like thread, people search)
 
 ## Git
 
-This change: jump to unread, thread search, edit/delete, private invite, topic, and mute channel. The edit form stays mounted while history refreshes, and the thread does not auto-scroll while you are editing. Parent `develop` was `929dfa9`. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4). Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main` after production serve.
+This change: jump to unread, thread search, edit/delete, private invite, topic, and mute channel. The edit form stays mounted while history refreshes, and the thread does not auto-scroll while you are editing. Two-browser e2e specs share a fresh public channel instead of `#general`. Parent `develop` was `929dfa9`. README and `docs/` are updated in the same change as the code. `main` stopped at rooms/signaling (PR #4). Remote heads are only those two branches. Next release decision is whether to promote `develop` to `main` after production serve.

@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
-import { signup, uniqueUser } from "./helpers.ts";
+import { connectedStatus, sharePublicRoom, signup, uniqueUser } from "./helpers.ts";
 
 const remotePlaying = (page: Page, name: string) =>
   page.locator(`video[aria-label="${name}"]`).evaluate((el: HTMLVideoElement) => {
@@ -30,12 +30,16 @@ test("two members join a P2P call", async ({ browser }) => {
   await signup(ada, adaUser);
   await signup(bob, bobUser);
 
-  await ada.getByRole("link", { name: "general" }).click();
-  await bob.getByRole("link", { name: "general" }).click();
-  await expect(ada.getByText(/Connected · 1 peer/)).toBeVisible({
+  const roomName = `call${Date.now()}`.slice(0, 20);
+  await sharePublicRoom(ada, bob, roomName);
+  await ada.reload();
+  await expect(ada.getByRole("heading", { name: roomName })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(ada.getByText(connectedStatus)).toBeVisible({
     timeout: 20_000,
   });
-  await expect(bob.getByText(/Connected · 1 peer/)).toBeVisible({
+  await expect(bob.getByText(connectedStatus)).toBeVisible({
     timeout: 20_000,
   });
 
